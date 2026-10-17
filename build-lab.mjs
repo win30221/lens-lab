@@ -2,9 +2,8 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {build} from 'esbuild';
 import {fileURLToPath} from 'node:url';
 import {parts} from './parts.mjs';
-const index=new URL('./dist/index.html',import.meta.url),diagram=new URL('./dist/diagram.html',import.meta.url);
-let base=readFileSync(index,'utf8');
-if(base.includes('id="lab"'))base=readFileSync(diagram,'utf8');else writeFileSync(diagram,base);
+const diagram=new URL('./dist/diagram.html',import.meta.url);
+let base=readFileSync(diagram,'utf8');
 const appStart=base.indexOf('<script>const MODEL='),modelEnd=base.indexOf(';\n',appStart),appEnd=base.indexOf('</script>',modelEnd);
 if(appStart>=0&&modelEnd>=0&&appEnd>=0){const data=JSON.parse(base.slice(appStart+'<script>const MODEL='.length,modelEnd));data.parts=parts;base=base.slice(0,appStart)+'<script>const MODEL='+JSON.stringify(data)+';\n'+readFileSync(new URL('./app.js',import.meta.url),'utf8')+base.slice(appEnd);}
 const aside=base.match(/<aside class="detail-panel"[\s\S]*?<\/aside>/)[0];
@@ -32,5 +31,5 @@ const code=result.outputFiles[0].text.replace(/<\/script/gi,'<\\/script');
 base=base.replace('</body>',()=>'<script>'+code+'</script></body>');
 const notices=readFileSync(new URL('./kit/LICENSE',import.meta.url),'utf8')+'\n'+readFileSync(new URL('./node_modules/three/LICENSE',import.meta.url),'utf8');
 base=base.replace('<head>',()=>'<head><!-- Third-party licenses\n'+notices+'\n-->');
-writeFileSync(index,base);writeFileSync(new URL('./index.html',import.meta.url),base);
+writeFileSync(new URL('./index.html',import.meta.url),base);
 console.log('Built 3D lens laboratory · '+Math.round(Buffer.byteLength(base)/1024)+' KB · self-contained');

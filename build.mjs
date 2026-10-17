@@ -133,6 +133,6 @@ const html=`<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"><met
 <footer><a class="footer-brand" href="#top">ANATOMY <span>一層一層，理解世界。</span></a><span class="mono">OPTICS STUDY NO. 001</span><a href="#top" aria-label="回到頂端">回到頂端 ↑</a></footer><div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 </main><script>const MODEL=${JSON.stringify(data)};\n${readFileSync(new URL('./app.js',import.meta.url),'utf8')}</script></body></html>`;
 mkdirSync(new URL('./dist/',import.meta.url),{recursive:true});
-writeFileSync(new URL('./dist/index.html',import.meta.url),html);
+writeFileSync(new URL('./dist/diagram.html',import.meta.url),html);
 
 console.log(`Built standalone page · ${R.solids.length} solids · ${Math.round(Buffer.byteLength(html)/1024)} KB`);
