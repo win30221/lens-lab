@@ -1,10 +1,17 @@
+import {sensorFragment} from './sensor-shader.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {apertureStops,focusFromSlider,sliderFromFocus,sceneX,depthOfField} from './optics.mjs';
+import {apertureStops,focusFromSlider,sliderFromFocus,sceneX,depthOfField,exposureGain,previewGain,diffractionSigma} from './optics.mjs';
 import {parts as partProfiles} from './parts.mjs';
 import {sensorFormat,focusOffset,stabilizationOffset,exposureState} from './camera-mechanics.mjs';
 import {createCameraBody} from './camera-body.js';
+import {buildAtelier} from './atelier.js';
+import {createSceneFinish} from './scene-finish.js';
+import {shutterStops,exposureTimes,rotorAngularSpeed} from './motion-exposure.mjs';
+import {integrateExposure} from './temporal-exposure.js';
+import {createFrameLoop,demoFrame} from './animation.mjs';
+import {createPhotoGallery} from './photo-gallery.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const canvas=$('#lab-canvas'),wrap=$('#lab-wrap'),photo=$('#photo-canvas'),reduce=matchMedia('(prefers-reduced-motion: reduce)');
@@ -27,39 +34,54 @@ function start(){
   document.body.dataset.theme='dark';canvas.setAttribute('aria-label','單眼相機與鏡頭剖面。直接旋轉對焦環調整清晰距離，旋轉變焦環改變焦距；空白處拖曳轉視角。H 隱藏介面，空白鍵拍照。');
   const lab=$('#lab'),visual=$('.lab-visual'),deck=document.createElement('div');deck.className='lab-control-deck';visual.append(deck);deck.append($('.lab-focus-controls'),$('.lab-bottom-controls'));
   const topbar=document.createElement('div');topbar.className='immersive-topbar';topbar.innerHTML='<div class="immersive-brand"><span class="brand-aperture">◉</span><div>ANATOMY <small>鏡頭實驗室</small></div><span class="lab-version">INTERACTIVE OPTICS</span></div><div class="immersive-actions"><button id="lab-catalog" aria-expanded="false">零件圖鑑</button><button id="lab-diagram">構造圖解</button><button id="lab-browser-full" aria-label="進入全螢幕" title="進入全螢幕">⛶</button></div>';lab.append(topbar);
-  const shotButton=document.createElement('button');shotButton.id='lab-shot';shotButton.textContent='實驗台全景';$('.lab-camera-tools').prepend(shotButton);
+  const shotButton=document.createElement('button');shotButton.id='lab-shot';shotButton.textContent='鏡頭特寫';$('.lab-camera-tools').prepend(shotButton);
+  const gardenButton=document.createElement('button');gardenButton.id='lab-garden';gardenButton.textContent='景觀特寫';gardenButton.setAttribute('aria-pressed','false');gardenButton.title='檢視 Blender 景觀模型；暫停主畫面的展示景深';shotButton.after(gardenButton);let inspectGarden=false;
   const rearButton=document.createElement('button');rearButton.id='lab-rear';rearButton.textContent='成像面背面';rearButton.setAttribute('aria-pressed','false');rearButton.title='從機身後方觀看 3:2 成像透視';shotButton.after(rearButton);
   const bodyButton=document.createElement('button');bodyButton.id='lab-body';bodyButton.textContent='單眼機身';bodyButton.setAttribute('aria-expanded','false');$('#lab-catalog').after(bodyButton);
-  const bodyPanel=document.createElement('aside');bodyPanel.id='body-profile';bodyPanel.hidden=true;bodyPanel.setAttribute('aria-label','單眼機身構造與操作');bodyPanel.innerHTML=`<header><span>DSLR / 全片幅單眼</span><button id="body-close" aria-label="關閉機身說明">×</button></header><h2>一條光路，兩種取景。</h2><div class="body-view-modes" role="group" aria-label="取景方式"><button id="view-live" aria-pressed="true">Live View</button><button id="view-optical" aria-pressed="false">光學觀景窗</button></div><p id="body-state" role="status"></p><div class="body-diagram-steps"><button data-body-part="mirror">反光鏡</button><span>→</span><button data-body-part="prism">對焦屏／五稜鏡</button><button data-body-part="shutter">快門簾</button><span>→</span><button data-body-part="sensor">CMOS</button></div><h3 id="body-part-title">CMOS 感光元件</h3><p id="body-part-desc"></p><div class="body-teaching-controls"><button id="sensor-xray" aria-pressed="true">成像透視：開</button><button id="sensor-circle" aria-pressed="false">顯示成像圈</button></div><p class="body-schematic-note">36 × 24 mm、3:2 全片幅。實際感光元件不透明；透視模式將成像顯示在正反面，便於觀察倒像。機身外殼移除，快門動作放慢。</p><p class="body-schematic-note">鏡頭採一般 24–70 mm 變焦結構示意；片數、曲率、鏡組行程與接環依型號不同。防手震為選配機構。</p><div class="body-sources">構造依據：<a href="https://global.canon/en/technology/dslr2021s.html" target="_blank" rel="noopener">Canon 單眼機構</a> · <a href="https://www.nikonusa.com/c/lenses/dslr-lenses/technology" target="_blank" rel="noopener">NIKKOR 鏡頭技術</a> · <a href="https://www.zeiss.com/photonics-and-optics/us/cinematography/know-how-hub/lens-illumination.html" target="_blank" rel="noopener">ZEISS 成像圈</a></div>`;lab.append(bodyPanel);
+  const bodyPanel=document.createElement('aside');bodyPanel.id='body-profile';bodyPanel.hidden=true;bodyPanel.setAttribute('aria-label','單眼機身構造與操作');bodyPanel.innerHTML=`<header><span>DSLR / 全片幅單眼</span><button id="body-close" aria-label="關閉機身說明">×</button></header><h2>一條光路，兩種取景。</h2><div class="body-view-modes" role="group" aria-label="取景方式"><button id="view-live" aria-pressed="true">Live View</button><button id="view-optical" aria-pressed="false">光學觀景窗</button></div><p id="body-state" role="status"></p><div class="body-diagram-steps"><button data-body-part="mirror">反光鏡</button><span>→</span><button data-body-part="prism">對焦屏／五稜鏡</button><button data-body-part="shutter">快門簾</button><span>→</span><button data-body-part="sensor">CMOS</button></div><h3 id="body-part-title">CMOS 感光元件</h3><p id="body-part-desc"></p><div class="body-teaching-controls"><button id="sensor-xray" aria-pressed="true">成像透視：開</button><button id="sensor-circle" aria-pressed="false">顯示成像圈</button></div><p class="body-schematic-note">36 × 24 mm、3:2 全片幅。實際感光元件不透明；透視模式將成像顯示在正反面，便於觀察倒像。機身外殼移除，快門動作放慢。</p><p class="body-schematic-note">Live View 維持取景亮度並展示景深；照片依固定 ISO 100、光圈與快門計算曝光。兩者皆使用九葉片散景與繞射近似。以 f/5.6、1/125 秒為場景曝光基準，並非測光校準。鏡頭採一般 24–70 mm 變焦結構示意；片數、曲率、鏡組行程與接環依型號不同。防手震為選配機構。</p><div class="body-sources">構造依據：<a href="https://global.canon/en/technology/dslr2021s.html" target="_blank" rel="noopener">Canon 單眼機構</a> · <a href="https://www.nikonusa.com/c/lenses/dslr-lenses/technology" target="_blank" rel="noopener">NIKKOR 鏡頭技術</a> · <a href="https://www.zeiss.com/photonics-and-optics/us/cinematography/know-how-hub/lens-illumination.html" target="_blank" rel="noopener">ZEISS 成像圈</a></div>`;lab.append(bodyPanel);
   const partSelect=document.createElement('select');partSelect.id='lab-part-select';partSelect.setAttribute('aria-label','選擇鏡頭零件');partSelect.innerHTML=partProfiles.map((p,i)=>`<option value="${i}">${String(i+1).padStart(2,'0')}　${p.name}</option>`).join('');$('.detail-top').after(partSelect);
+  const inspector=document.createElement('aside');inspector.className='camera-inspector';inspector.setAttribute('aria-label','取景與構造說明');lab.append(inspector);
+  const inspectorTabs=document.createElement('div');inspectorTabs.className='inspector-tabs';inspectorTabs.setAttribute('role','group');inspectorTabs.setAttribute('aria-label','構造說明');inspectorTabs.append($('#lab-catalog'),bodyButton);
+  const partPanel=$('.detail-panel');inspector.append($('.photo-panel'),inspectorTabs,partPanel,bodyPanel);
+  const moreParts=document.createElement('details');moreParts.className='inspector-more';moreParts.innerHTML='<summary>深入了解零件</summary>';
+  moreParts.append($('#mini-art'),$('#part-desc'),partPanel.querySelector('.fact'));partPanel.querySelector('.part-pager').before(moreParts);
+  const moreBody=document.createElement('details');moreBody.className='inspector-more';moreBody.innerHTML='<summary>成像原理與參考資料</summary>';moreBody.append(...bodyPanel.querySelectorAll('.body-schematic-note,.body-sources'));bodyPanel.append(moreBody);
   const diagram=document.createElement('div');diagram.id='diagram-overlay';diagram.hidden=true;diagram.innerHTML='<div class="diagram-modal"><header><span>鏡頭構造圖解</span><button id="close-diagram" aria-label="關閉構造圖解">×</button></header></div>';diagram.querySelector('.diagram-modal').append($('.technical-view'));lab.append(diagram);
   const rotaryHint=document.createElement('div');rotaryHint.id='rotary-hint';rotaryHint.innerHTML='<span>↻</span><div>直接旋轉對焦環<small>沿環面拖曳，改變清晰的距離</small></div>';wrap.append(rotaryHint);
+  const dismissRotaryHint=()=>rotaryHint.classList.add('used');
+  canvas.addEventListener('pointerdown',dismissRotaryHint,{once:true,capture:true,passive:true});
+  canvas.addEventListener('wheel',dismissRotaryHint,{once:true,passive:true});
   const shutter=document.createElement('button');shutter.id='lab-shutter';shutter.setAttribute('aria-label','按下快門');shutter.title='按下快門';shutter.innerHTML='<span></span>';deck.append(shutter);
+  const speedField=document.createElement('div');speedField.className='lab-speed';speedField.innerHTML=`<label for="shutter-speed">快門</label><select id="shutter-speed">${shutterStops.map((s,i)=>`<option value="${i}" ${i===2?'selected':''}>${s.label}</option>`).join('')}</select>`;$('.lab-bottom-controls').append(speedField);
+  const structureControl=document.createElement('details');structureControl.className='structure-control';structureControl.innerHTML='<summary>拆解程度</summary>';structureControl.append($('.lab-spread'));$('.lab-toolbar').append(structureControl);
+  const focusField=document.createElement('div');focusField.className='compact-focus';const focusLabel=document.createElement('label');focusLabel.htmlFor='lab-focus';focusLabel.textContent='對焦';focusField.append(focusLabel,$('#lab-focus'),$('#focus-label'));$('.lab-bottom-controls').prepend(focusField);$('.lab-focus-controls').remove();deck.prepend($('.lab-toolbar'));
   const flash=document.createElement('div');flash.id='shutter-flash';wrap.append(flash);
-  const result=document.createElement('a');result.id='last-photo';result.hidden=true;result.download='anatomy-photo.png';result.innerHTML='<img alt="剛拍攝的照片"><span>儲存照片 ↗</span>';wrap.append(result);
+  const gallery=createPhotoGallery(wrap);
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x111a22);scene.fog=new THREE.FogExp2(0x111a22,.018);
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0x111a22);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
   const PREVIEW_W=sensorFormat.previewWidth,PREVIEW_H=sensorFormat.previewHeight;
   preview.setSize(PREVIEW_W,PREVIEW_H,false);preview.setPixelRatio(1);preview.toneMapping=THREE.ACESFilmicToneMapping;preview.toneMappingExposure=1.18;
-  const camera=new THREE.PerspectiveCamera(32,1,.1,100),home=new THREE.Vector3(1.1,3.5,8.4),targetHome=new THREE.Vector3(-2.15,1.6,0);camera.position.copy(home);
+  const camera=new THREE.PerspectiveCamera(34,1,.1,100),home=new THREE.Vector3(3.4,4.1,17.8),targetHome=new THREE.Vector3(.3,1.35,0);camera.position.copy(home);
+  const sceneFinish=createSceneFinish(renderer,camera);
   const orbit=new OrbitControls(camera,canvas);orbit.target.copy(targetHome);orbit.enableDamping=true;orbit.dampingFactor=.075;orbit.enablePan=false;orbit.minDistance=4.2;orbit.maxDistance=25;orbit.minPolarAngle=.4;orbit.maxPolarAngle=Math.PI*.485;orbit.rotateSpeed=.55;orbit.zoomSpeed=.7;orbit.update();
+  $('.photo-footer').title='取景亮度已補償，保留景深變化；拍下照片才套用光圈、快門與 ISO 100 的曝光。';
   const photoCamera=new THREE.PerspectiveCamera(25,sensorFormat.aspect,.1,30);photoCamera.position.set(.9,1.35,0);photoCamera.lookAt(7.5,1.35,0);camera.layers.enable(1);
   const studio=document.createElement('canvas');studio.width=512;studio.height=256;const envCtx=studio.getContext('2d');
   const envGrad=envCtx.createLinearGradient(0,0,0,256);envGrad.addColorStop(0,'#a6bbcd');envGrad.addColorStop(.43,'#28343e');envGrad.addColorStop(.5,'#0a1016');envGrad.addColorStop(1,'#26313a');envCtx.fillStyle=envGrad;envCtx.fillRect(0,0,512,256);
   for(const [x,y,w,h,c] of [[25,40,90,70,'#e9e9e5'],[270,55,30,140,'#b8e5ff'],[410,50,65,130,'#fbd59a']]){envCtx.fillStyle=c;envCtx.fillRect(x,y,w,h)}
   const env=new THREE.CanvasTexture(studio);env.mapping=THREE.EquirectangularReflectionMapping;env.colorSpace=THREE.SRGBColorSpace;scene.environment=env;scene.environmentIntensity=.65;
-  scene.add(new THREE.HemisphereLight(0xc6e5f6,0x29211c,2.1));
-  const key=new THREE.DirectionalLight(0xffe7c5,4);key.position.set(-3,8,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=6;key.shadow.camera.bottom=-6;key.shadow.bias=-.0008;key.shadow.normalBias=.025;scene.add(key);
+  scene.add(new THREE.HemisphereLight(0xc6e5f6,0x29211c,1.15));
+  const key=new THREE.DirectionalLight(0xffe7c5,3.2);key.position.set(-3,8,5);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-12;key.shadow.camera.right=12;key.shadow.camera.top=9;key.shadow.camera.bottom=-9;key.shadow.bias=-.0005;key.shadow.normalBias=.018;scene.add(key);
   const rim=new THREE.DirectionalLight(0x78c9f2,3.8);rim.position.set(4,5,-5);scene.add(rim);
   const fill=new THREE.PointLight(0xffb95a,18,10);fill.position.set(-2.5,2.3,2);scene.add(fill);
-  const metal=new THREE.MeshStandardMaterial({color:0x303944,metalness:.87,roughness:.3});
+  const metal=new THREE.MeshStandardMaterial({color:0x303944,metalness:.82,roughness:.36});
   const dark=new THREE.MeshStandardMaterial({color:0x131b22,metalness:.45,roughness:.4});
   const rubber=new THREE.MeshStandardMaterial({color:0x0c1015,metalness:.08,roughness:.62});
   const brass=new THREE.MeshStandardMaterial({color:0x98713c,metalness:.89,roughness:.23});
   const chrome=new THREE.MeshStandardMaterial({color:0xb8c3cc,metalness:1,roughness:.18});
   const glass=new THREE.MeshPhysicalMaterial({color:0xc5dae2,metalness:0,roughness:.04,transmission:.91,transparent:true,opacity:.8,thickness:.12,ior:1.52,clearcoat:1,envMapIntensity:1.2,side:THREE.DoubleSide,depthWrite:false});
   const materials={metal,dark,rubber,brass,chrome};
-  const blockGeo=new THREE.BoxGeometry(1,1,1);
+  const blockGeo=new RoundedBoxGeometry(1,1,1,2,.025);
   function box(parent,w,h,d,x,y,z,mat=metal){const m=new THREE.Mesh(blockGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
   function cylinder(parent,r,len,x,y,z,mat=metal,axis='y',segments=48){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,segments),mat);if(axis==='x')m.rotation.z=-Math.PI/2;if(axis==='z')m.rotation.x=Math.PI/2;m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
   function torus(parent,x,r,t,mat=brass,y=0,z=0){const m=new THREE.Mesh(new THREE.TorusGeometry(r,t,8,96),mat);m.rotation.y=Math.PI/2;m.position.set(x,y,z);parent.add(m);return m}
@@ -71,8 +93,8 @@ function start(){
   const ruler=box(bench,11.7,.016,.22,.8,.251,1.59,chrome);const ticks=[];
   for(let i=0;i<=160;i++){const x=-5.0+i*.073;ticks.push(x,.263,1.5,x,.263,i%10===0?1.68:1.58)}
   const ticksGeo=new THREE.BufferGeometry();ticksGeo.setAttribute('position',new THREE.Float32BufferAttribute(ticks,3));const tickLines=new THREE.LineSegments(ticksGeo,new THREE.LineBasicMaterial({color:0x151e27}));bench.add(tickLines);
-  const nameplate=box(bench,1.7,.045,.5,-3.65,.26,1.13,brass);const plateText=new THREE.Mesh(new THREE.PlaneGeometry(1.45,.17),new THREE.MeshBasicMaterial({map:label('ANATOMY / OPTICAL LAB','#211d15'),transparent:true}));plateText.rotation.x=-Math.PI/2;plateText.position.set(-3.65,.285,1.13);bench.add(plateText);
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x111921,roughness:.9,metalness:.1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.23;floor.receiveShadow=true;scene.add(floor);
+  const nameplate=box(bench,1.7,.045,.5,-3.65,.26,1.13,brass);const plateText=new THREE.Mesh(new THREE.PlaneGeometry(1.45,.17),new THREE.MeshBasicMaterial({map:label('HUGO / OPTICAL ATELIER','#211d15'),transparent:true}));plateText.rotation.x=-Math.PI/2;plateText.position.set(-3.65,.285,1.13);bench.add(plateText);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x171d23,roughness:.77,metalness:.16}));floor.rotation.x=-Math.PI/2;floor.position.y=-2.62;floor.receiveShadow=true;scene.add(floor);
   const LENS_Y=1.65,CENTER=-1.55,AX=.018,RAD=.024;
   const lensRoot=new THREE.Group();lensRoot.position.set(CENTER,LENS_Y,0);scene.add(lensRoot);
   const groups=[],shells=[],zoomGlass=[],irisBlades=[];let selected=3,cutaway=true,focusCarriage,vrCarriage;
@@ -142,33 +164,14 @@ function start(){
   const body=createCameraBody({scene,texture:sensorMap,box,label,metal,dark,chrome,axisY:LENS_Y});
   // Procedural sample scene: three genuinely spatial subjects at the marked distances.
   const props=new THREE.Group();scene.add(props);
-  const soil=new THREE.MeshStandardMaterial({color:0x233a32,roughness:.95});const leafMat=new THREE.MeshStandardMaterial({color:0x78966a,roughness:.8});const leaf2=new THREE.MeshStandardMaterial({color:0x4d785e,roughness:.8});
-  box(props,5.9,.1,3.4,4.65,.29,0,soil);
   const nearX=sceneX(.65),midX=sceneX(2),farX=sceneX(7);
-  cylinder(props,.25,.37,nearX,.535,-.55,new THREE.MeshStandardMaterial({color:0xa46b4a,roughness:.7}));cylinder(props,.276,.06,nearX,.72,-.55,brass);cylinder(props,.231,.02,nearX,.752,-.55,soil);
-  cylinder(props,.032,.55,nearX,1.02,-.55,new THREE.MeshStandardMaterial({color:0x5b4d30,roughness:.8}),undefined,12);
-  for(let j=0;j<9;j++){const a=j*2.4,h=.91+j*.085,r=.12+j%3*.08;const l=new THREE.Mesh(new THREE.IcosahedronGeometry(.22+(j%2)*.035,1),j%2?leafMat:leaf2);l.scale.set(.9,.7,1.15);l.position.set(nearX+Math.cos(a)*r,h,-.55+Math.sin(a)*r);l.castShadow=true;props.add(l)}
-  const cabinMat=new THREE.MeshStandardMaterial({color:0xb3a080,roughness:.82}),roofMat=new THREE.MeshStandardMaterial({color:0x394b56,metalness:.3,roughness:.6});
-  box(props,.95,.68,1.07,midX,.73,.18,cabinMat);box(props,1.08,.08,1.19,midX,.39,.18,dark);
-  const roofShape=new THREE.Shape();roofShape.moveTo(-.59,0);roofShape.lineTo(0,.44);roofShape.lineTo(.59,0);roofShape.closePath();const roof=new THREE.Mesh(new THREE.ExtrudeGeometry(roofShape,{depth:1.2,bevelEnabled:false}),roofMat);roof.rotation.y=Math.PI/2;roof.position.set(midX-.6,1.07,.18);roof.castShadow=true;props.add(roof);
-  const warmWindow=new THREE.MeshStandardMaterial({color:0xffdb8d,emissive:0xffae4b,emissiveIntensity:.7,roughness:.3});
-  for(const z of [-.12,.48]){box(props,.018,.22,.22,midX-.484,.85,z,dark);box(props,.022,.16,.16,midX-.495,.85,z,warmWindow);box(props,.025,.17,.015,midX-.51,.85,z,brass);box(props,.025,.015,.17,midX-.51,.85,z,brass)}
-  box(props,.025,.42,.17,midX-.5,.62,.18,dark);box(props,.16,.34,.16,midX+.24,1.43,.4,metal);
-  for(let j=0;j<7;j++){box(props,.014,.014,1.04,midX-.482,.45+j*.087,.18,new THREE.MeshStandardMaterial({color:0x766c57,roughness:1}))}
-  const mountainMat=new THREE.MeshStandardMaterial({color:0x617e84,flatShading:true,roughness:.9}),snowMat=new THREE.MeshStandardMaterial({color:0xdde7e0,flatShading:true,roughness:.85});
-  for(const [x,z,r,h] of [[farX,.25,.92,1.8],[farX+.65,-.85,.78,1.4],[farX+.8,1.0,.62,1.2]]){
-    const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,6),mountainMat);m.position.set(x,.34+h/2,z);m.rotation.y=.4;m.castShadow=true;props.add(m);
-    const cap=new THREE.Mesh(new THREE.ConeGeometry(r*.34,h*.34,6),snowMat);cap.position.set(x,.34+h*.83,z);cap.rotation.y=.4;props.add(cap);
-  }
-  for(const [x,z,h]of [[farX-.55,-.7,.8],[midX+.4,1.13,.65],[midX+.8,-1.2,.9],[farX-.45,1.2,.63]]){cylinder(props,.03,h,x,.34+h/2,z,brass,undefined,10);for(let j=0;j<3;j++){const tree=new THREE.Mesh(new THREE.ConeGeometry(.24-j*.035,.4,10),j%2?leafMat:leaf2);tree.position.set(x,.55+h*.33+j*.16,z);tree.castShadow=true;props.add(tree)}}
-  const grass=new THREE.InstancedMesh(new THREE.ConeGeometry(.014,.1,3),leaf2,180),dummy=new THREE.Object3D();
-  for(let j=0;j<180;j++){const a=Math.sin(j*12.9898)*43758.5453,b=Math.sin(j*37.445)*27135.353;dummy.position.set(1.9+(a-Math.floor(a))*5.4,.4,-1.45+(b-Math.floor(b))*2.9);dummy.rotation.set(.2*Math.sin(j),j,0);dummy.updateMatrix();grass.setMatrixAt(j,dummy.matrix)}props.add(grass);
   const sky=document.createElement('canvas');sky.width=256;sky.height=256;const sc=sky.getContext('2d'),sg=sc.createLinearGradient(0,0,0,256);sg.addColorStop(0,'#40657a');sg.addColorStop(.55,'#91b4bc');sg.addColorStop(1,'#d3c19d');sc.fillStyle=sg;sc.fillRect(0,0,256,256);sc.fillStyle='#e5d6b3';sc.beginPath();sc.arc(177,80,23,0,Math.PI*2);sc.fill();
-  const skyTexture=new THREE.CanvasTexture(sky);skyTexture.colorSpace=THREE.SRGBColorSpace;const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(3.65,2.8),new THREE.MeshBasicMaterial({map:skyTexture}));backdrop.rotation.y=-Math.PI/2;backdrop.position.set(7.35,1.73,0);props.add(backdrop);
-  for(const z of [-1.85,1.85])box(props,.09,2.95,.06,7.4,1.73,z,brass);box(props,.09,.065,3.76,7.4,3.2,0,metal);
+  const skyTexture=new THREE.CanvasTexture(sky);skyTexture.colorSpace=THREE.SRGBColorSpace;const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(14,8),new THREE.MeshBasicMaterial({map:skyTexture}));backdrop.rotation.y=-Math.PI/2;backdrop.position.set(8.4,3.2,0);props.add(backdrop);
+  const meadow=new THREE.Mesh(new THREE.PlaneGeometry(7,14),new THREE.MeshStandardMaterial({color:0x71805a,roughness:1}));meadow.rotation.x=-Math.PI/2;meadow.position.set(5,.31,0);meadow.receiveShadow=true;props.add(meadow);
   // Cyan plane and its near/far limits live only in the explanatory camera layer.
   const focusPlane=new THREE.Group();focusPlane.layers.set(1);scene.add(focusPlane);
-  const planeFace=new THREE.Mesh(new THREE.PlaneGeometry(2.9,2.5),new THREE.MeshBasicMaterial({color:0x7ad7ed,transparent:true,opacity:.035,side:THREE.DoubleSide,depthWrite:false}));planeFace.rotation.y=Math.PI/2;focusPlane.add(planeFace);
+  const planeFace=new THREE.Mesh(new THREE.PlaneGeometry(2.9,2.5),new THREE.MeshBasicMaterial({color:0x7ad7ed,transparent:true,opacity:.065,side:THREE.DoubleSide,depthWrite:false}));planeFace.rotation.y=Math.PI/2;focusPlane.add(planeFace);
+  const planeBorder=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-1.25,-1.45),new THREE.Vector3(0,1.25,-1.45),new THREE.Vector3(0,1.25,1.45),new THREE.Vector3(0,-1.25,1.45)]),new THREE.LineBasicMaterial({color:0xb9efff,transparent:true,opacity:.85}));focusPlane.add(planeBorder);
   const gridPoints=[];for(let i=0;i<=6;i++){const t=-1.45+i*2.9/6;gridPoints.push(0,-1.25,t,0,1.25,t)}for(let i=0;i<=5;i++){const t=-1.25+i*.5;gridPoints.push(0,t,-1.45,0,t,1.45)}
   const grid=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(gridPoints,3)),new THREE.LineBasicMaterial({color:0x8ee2f3,transparent:true,opacity:.4}));focusPlane.add(grid);focusPlane.traverse(n=>n.layers.set(1));
   const dofVolume=new THREE.Mesh(new THREE.BoxGeometry(1,2.5,2.9),new THREE.MeshBasicMaterial({color:0x5bbfcb,transparent:true,opacity:.025,side:THREE.BackSide,depthWrite:false}));dofVolume.layers.set(1);scene.add(dofVolume);
@@ -176,18 +179,18 @@ function start(){
   const rayLines=new THREE.LineSegments(rayGeo,new THREE.LineBasicMaterial({color:0x99e1ed,transparent:true,opacity:.25,blending:THREE.AdditiveBlending,depthWrite:false}));rayLines.layers.set(1);scene.add(rayLines);
   const photonsGeo=new THREE.BufferGeometry();photonsGeo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(27),3));const photons=new THREE.Points(photonsGeo,new THREE.PointsMaterial({color:0xbbf5ff,size:.035,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));photons.layers.set(1);scene.add(photons);
   // Preview: the depth buffer is converted to a thin-lens circle of confusion before sampling.
-  const photoRT=new THREE.WebGLRenderTarget(PREVIEW_W,PREVIEW_H,{depthBuffer:true});photoRT.depthTexture=new THREE.DepthTexture(PREVIEW_W,PREVIEW_H,THREE.UnsignedShortType);
-  const uniforms={tColor:{value:photoRT.texture},tDepth:{value:photoRT.depthTexture},resolution:{value:new THREE.Vector2(PREVIEW_W,PREVIEW_H)},focus:{value:2},focal:{value:50},aperture:{value:5.6}};
+  const photoRT=new THREE.WebGLRenderTarget(PREVIEW_W,PREVIEW_H,{depthBuffer:true,type:THREE.HalfFloatType});photoRT.depthTexture=new THREE.DepthTexture(PREVIEW_W,PREVIEW_H,THREE.UnsignedShortType);
+  const uniforms={tColor:{value:photoRT.texture},tDepth:{value:photoRT.depthTexture},resolution:{value:new THREE.Vector2(PREVIEW_W,PREVIEW_H)},focus:{value:2},focal:{value:24},aperture:{value:5.6},exposure:{value:1},diffraction:{value:diffractionSigma(5.6)}};
   const blurMaterial=new THREE.ShaderMaterial({uniforms,depthTest:false,depthWrite:false,
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:`varying vec2 vUv;uniform sampler2D tColor,tDepth;uniform vec2 resolution;uniform float focus,focal,aperture;
-    float coc(vec2 uv){float d=texture2D(tDepth,uv).x;float z=(2.*.1*30.)/(30.+.1-(2.*d-1.)*(30.-.1));float x=.9+z;float u=clamp(.35*exp((x-1.8)/5.3*log(20./.35)),.25,200.)*1000.;float s=focus*1000.;return min(focal*focal*abs(u-s)/(aperture*u*max(s-focal,1.)),4.);}
-    void main(){float r=coc(vUv)*resolution.x/36.*.5;vec3 col=texture2D(tColor,vUv).rgb;float weight=1.;for(int i=0;i<28;i++){float f=float(i)+.5;float a=f*2.39996323;vec2 offset=vec2(cos(a),sin(a))*sqrt(f/28.)*r/resolution;vec2 q=clamp(vUv+offset,vec2(.001),vec2(.999));float w=1.;col+=texture2D(tColor,q).rgb*w;weight+=w;}gl_FragColor=vec4(col/weight,1.);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
-    }`});
+    fragmentShader:sensorFragment});
   const screenScene=new THREE.Scene(),screenCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);screenScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),blurMaterial));
-  let focus=2,targetFocus=2,focal=50,aperture=5.6,spread=0,targetSpread=0,auto=false,clock=0,frame=0,last=0,visible=true,dirty=true,rayOn=true,drag=null,lastPhoto=0,focusMode='MF',wideShot=false,rearView=false,liveView=true,sensorXray=true,showImageCircle=false,dofPreview=false,shotStarted=null,shotSaved=false;
+  let focus=2,targetFocus=2,focal=24,aperture=5.6,spread=0,targetSpread=0,auto=false,clock=0,demoTime=0,visible=true,dirty=true,rayOn=true,drag=null,lastPhoto=0,focusMode='MF',wideShot=false,rearView=false,liveView=true,sensorXray=true,showImageCircle=false,dofPreview=false,shotStarted=null,shotSaved=false;
+  let rotor=null,motionTime=0,shutterIndex=2,shotSettings=null;
+  function poseMotion(time){if(rotor)rotor.rotation.x=time*rotorAngularSpeed;canvas.dataset.rotorAngle=String(time*rotorAngularSpeed)}
+  const demoStatus=document.createElement('span');demoStatus.id='demo-status';demoStatus.setAttribute('role','status');demoStatus.hidden=true;$('.lab-toolbar').append(demoStatus);
+  $('#lab-play').title='32 秒循環：對焦 → 光圈景深 → 廣角／望遠 → 鏡組拆解';
+  $('#shutter-speed').addEventListener('change',e=>{shutterIndex=Number(e.target.value);canvas.dataset.shutterSeconds=String(shutterStops[shutterIndex].seconds);dirty=true;run()});
   const bodyDescriptions={sensor:['CMOS 感光元件','一般全片幅單眼使用約 36 × 24 mm 的長方形感光區，記錄鏡頭成像圈內的 3:2 畫面。它把光轉換為電訊號，並不是另一片透鏡。此處只有透視模式會從背面顯示影像。'],mirror:['快速回復反光鏡','光學取景時，約 45° 的反光鏡把光向上送到對焦屏與五稜鏡。拍照時反光鏡先升起，讓光線抵達快門與感光元件；Live View 則保持升起。'],shutter:['焦平面快門','快門位於感光元件前方。先幕開始曝光、後幕結束曝光；拍攝完成後再復位。按下快門可觀察放慢的動作，這裡示範完全開啟的曝光，不模擬高速狹縫掃描。'],prism:['對焦屏、五稜鏡與接目鏡','反光鏡將光送至對焦屏，再經五稜鏡轉向與校正，讓光學觀景窗呈現正立影像。部分入門單眼以五面鏡替代五稜鏡。感光元件與上方對焦屏是不同的平面。']};
   const previewDepth=document.createElement('button');previewDepth.id='dof-preview';previewDepth.textContent='景深預覽';previewDepth.setAttribute('aria-pressed','false');$('.body-teaching-controls').append(previewDepth);
   const dofNote=document.createElement('p');dofNote.className='body-schematic-note';dofNote.textContent='光學取景時光圈通常保持全開，按「景深預覽」或曝光時再收至設定值。對焦距離控制選取 0.35–20 m 作教學展示。';$('.body-teaching-controls').after(dofNote);
@@ -199,7 +202,7 @@ function start(){
   $('#sensor-circle').addEventListener('click',()=>{showImageCircle=!showImageCircle;$('#sensor-circle').setAttribute('aria-pressed',String(showImageCircle));dirty=true;run()});
   previewDepth.addEventListener('click',()=>{dofPreview=!dofPreview;previewDepth.setAttribute('aria-pressed',String(dofPreview));dirty=true;run()});
   let rayPaths=[],picked=-1,focusRotation=0,compactViewport=false;
-  function stopAuto(){auto=false;$('#lab-play').setAttribute('aria-pressed','false');$('#lab-play').innerHTML='<span class="play-mark">▶</span> <span>播放示範</span>'}
+  function stopAuto(){if(auto){targetFocus=focus;targetSpread=spread}auto=false;canvas.dataset.demoPlaying='false';demoStatus.hidden=true;$('#lab-play').setAttribute('aria-pressed','false');$('#lab-play').innerHTML='<span class="play-mark">▶</span> <span>對焦／拆解導覽</span>'}
   if(!auto)stopAuto();
   function setFocus(value,manual=true){targetFocus=THREE.MathUtils.clamp(value,.35,20);if(manual){stopAuto();focusMode='MF'}dirty=true;run()}
   function setMode(mode){cutaway=mode==='cutaway';targetSpread=mode==='exploded'?1:0;$$('[data-lab-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.labMode===mode);b.setAttribute('aria-pressed',String(b.dataset.labMode===mode))});dirty=true;run()}
@@ -207,12 +210,12 @@ function start(){
     const value=focus.toFixed(2),dof=depthOfField(focal,aperture,focus),far=Number.isFinite(dof.far)?dof.far.toFixed(2):'∞';
     distanceCtx.fillStyle='#0a1417';distanceCtx.fillRect(0,0,320,96);distanceCtx.fillStyle='#dce9cf';distanceCtx.font='53px Consolas, monospace';distanceCtx.textAlign='center';distanceCtx.textBaseline='middle';distanceCtx.fillText(value+' m',160,51);distanceTexture.needsUpdate=true;
     $('#lab-distance').innerHTML=value+' <small>m</small>';$('#lab-dof').innerHTML=dof.near.toFixed(2)+'—'+far+' <small>m</small>';
-    $('#lab-focus').value=String(Math.round(sliderFromFocus(focus)));$('#lab-focus').setAttribute('aria-valuetext',value+' 公尺');
-    const targets=[.65,2,7],names=['前景盆栽','中景小屋','遠景山丘'];let nearest=0;for(let i=1;i<3;i++)if(Math.abs(Math.log(focus/targets[i]))<Math.abs(Math.log(focus/targets[nearest])))nearest=i;
+    if(document.activeElement!==$('#lab-focus'))$('#lab-focus').value=String(Math.round(sliderFromFocus(focus)));$('#lab-focus').setAttribute('aria-valuetext',value+' 公尺');
+    const targets=[.65,2,7],names=['前景樹木','中景小屋','遠景山丘'];let nearest=0;for(let i=1;i<3;i++)if(Math.abs(Math.log(focus/targets[i]))<Math.abs(Math.log(focus/targets[nearest])))nearest=i;
     const onTarget=Math.abs(Math.log(focus/targets[nearest]))<.05;
-    $('#focus-label').textContent=(onTarget?names[nearest]+' · ':'自訂對焦 · ')+value+' m';$('#photo-status').textContent=onTarget?names[nearest]+'對焦':'清晰平面移動中';
+    $('#focus-label').textContent=value+' m';$('#photo-status').textContent=onTarget?names[nearest]+'對焦':'自訂距離 '+value+' m';
     $$('[data-focus]').forEach(b=>b.classList.toggle('active',Math.abs(Math.log(focus/Number(b.dataset.focus)))<.05));
-    $('#photo-settings').textContent=(liveView?focusMode:'OVF')+' · '+focal+' mm · f/'+(!liveView&&!dofPreview&&shotStarted===null?2.8:aperture);$('#lab-spread').value=String(Math.round(spread*100));$('#lab-spread-value').textContent=Math.round(spread*100)+'%';
+    $('#photo-settings').textContent=(liveView?focusMode:'OVF')+' · '+focal+' mm · f/'+(!liveView&&!dofPreview&&shotStarted===null?2.8:aperture)+' · '+shutterStops[shutterIndex].label;$('#lab-spread').value=String(Math.round(spread*100));$('#lab-spread-value').textContent=Math.round(spread*100)+'%';
     photo.parentElement.classList.toggle('in-focus',onTarget);
     canvas.dataset.focus=String(focus);canvas.dataset.aperture=String(aperture);canvas.dataset.focal=String(focal);canvas.dataset.spread=String(spread);
     canvas.dataset.sensorAspect=String(sensorFormat.aspect);canvas.dataset.focusGroup=String(focusCarriage.position.x);canvas.dataset.vrAxial=String(vrCarriage.position.x);
@@ -220,7 +223,8 @@ function start(){
   function updateOptics(){
     const workingAperture=!liveView&&!dofPreview&&shotStarted===null?2.8:aperture,open=.56*2.8/workingAperture;
     for(let j=0;j<9;j++){const a=j*2*Math.PI/9,b=(j+1)*2*Math.PI/9,r=.64,vertices=[[0,r*Math.cos(a),r*Math.sin(a)],[0,r*Math.cos(b),r*Math.sin(b)],[0,open*Math.cos(b),open*Math.sin(b)],[0,open*Math.cos(a),open*Math.sin(a)]];const arr=irisBlades[j].geometry.attributes.position;let k=0;for(const ix of [0,1,2,0,2,3]){arr.setXYZ(k++,...vertices[ix])}arr.needsUpdate=true;irisBlades[j].geometry.computeVertexNormals()}
-    uniforms.focus.value=focus;uniforms.focal.value=focal;uniforms.aperture.value=workingAperture;
+    uniforms.focus.value=focus;uniforms.focal.value=focal;uniforms.aperture.value=workingAperture;uniforms.diffraction.value=diffractionSigma(workingAperture);
+    uniforms.exposure.value=previewGain(liveView,workingAperture);
     photoCamera.fov=2*Math.atan(sensorFormat.height/(2*focal))*180/Math.PI;photoCamera.updateProjectionMatrix();
     focusPlane.position.set(sceneX(focus),1.55,0);
     const dof=depthOfField(focal,aperture,focus),near=sceneX(Math.max(.35,dof.near)),far=sceneX(Math.min(20,dof.far));dofVolume.position.set((near+far)/2,1.55,0);dofVolume.scale.x=Math.max(.01,far-near);
@@ -263,10 +267,14 @@ function start(){
   $('#lab-focal').addEventListener('input',e=>{stopAuto();focal=Number(e.target.value);$('#lab-focal-value').textContent=focal+' mm';$('#focal').value=e.target.value;$('#focal').dispatchEvent(new Event('input'));updateOptics();run()});
   $('#lab-spread').addEventListener('input',e=>{stopAuto();targetSpread=Number(e.target.value)/100;cutaway=targetSpread<.15;$$('[data-lab-mode]').forEach(b=>{const on=b.dataset.labMode===(targetSpread>.01?'exploded':'cutaway');b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});dirty=true;run()});
   $$('[data-lab-mode]').forEach(b=>b.addEventListener('click',()=>{stopAuto();setMode(b.dataset.labMode)}));
-  $('#lab-play').addEventListener('click',()=>{if(auto)stopAuto();else{auto=true;clock=0;$('#lab-play').setAttribute('aria-pressed','true');$('#lab-play').innerHTML='<span class="play-mark">Ⅱ</span> <span>暫停示範</span>';cutaway=true;run()}});
+  function startDemo(){resetView();closeBody();orbit.update();auto=true;canvas.dataset.demoPlaying='true';demoTime=0;aperture=5.6;focal=24;shutterIndex=2;$('#shutter-speed').value='2';canvas.dataset.shutterSeconds=String(shutterStops[2].seconds);targetFocus=.65;setMode('cutaway');demoStatus.hidden=false;demoStatus.textContent='前景樹木';$('#lab-play').setAttribute('aria-pressed','true');$('#lab-play').innerHTML='<span class="play-mark">Ⅱ</span> <span>暫停導覽</span>';dirty=true;run()}
+  $('#lab-play').addEventListener('click',()=>{if(auto)stopAuto();else startDemo()});
+  let userInteracted=false;
+  function interruptDemo(event){userInteracted=true;if(event.target.closest?.('#lab-play'))return;stopAuto()}
+  for(const type of ['pointerdown','wheel','keydown','click','input','change'])lab.addEventListener(type,interruptDemo,{capture:true,passive:true});
   $('#lab-rays').addEventListener('click',()=>{rayOn=!rayOn;$('#lab-rays').setAttribute('aria-pressed',String(rayOn));rayLines.visible=rayOn;photons.visible=rayOn;dirty=true;run()});
   $('#stabilize').addEventListener('click',()=>{dirty=true;run()});
-  function resetView(){wideShot=false;rearView=false;rearButton.setAttribute('aria-pressed','false');$('#lab-shot').textContent='實驗台全景';lab.classList.remove('rear-view');canvas.dataset.view='lens';camera.position.copy(home);orbit.target.copy(targetHome);if(compactViewport)orbit.target.x-=.5}
+  function resetView(){wideShot=false;rearView=false;inspectGarden=false;gardenButton.setAttribute('aria-pressed','false');gardenButton.textContent='景觀特寫';rearButton.setAttribute('aria-pressed','false');$('#lab-shot').textContent='鏡頭特寫';lab.classList.remove('rear-view');canvas.dataset.view='lens';camera.position.copy(home);orbit.target.copy(targetHome);if(compactViewport)orbit.target.x-=.5}
   $('#lab-reset').addEventListener('click',()=>{stopAuto();resetView();orbit.update();dirty=true;run()});
   $('#lab-full').textContent='◩';$('#lab-full').setAttribute('aria-label','隱藏操作介面');$('#lab-full').title='隱藏操作介面（H）';
   $('#lab-full').addEventListener('click',()=>lab.classList.toggle('clean-view'));
@@ -274,29 +282,51 @@ function start(){
   partSelect.addEventListener('change',()=>select(Number(partSelect.value)));
   $('#lab-diagram').addEventListener('click',()=>{stopAuto();diagram.hidden=false;diagram.querySelector('details').open=true});$('#close-diagram').addEventListener('click',()=>diagram.hidden=true);
   $('#lab-browser-full').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await lab.requestFullscreen()}catch{}});
-  $('#lab-shot').addEventListener('click',()=>{stopAuto();const wide=!wideShot;resetView();wideShot=wide;camera.position.copy(wideShot?new THREE.Vector3(7.5,4.9,11.8):home);orbit.target.copy(wideShot?new THREE.Vector3(.5,1.05,0):targetHome);$('#lab-shot').textContent=wideShot?'鏡頭特寫':'實驗台全景';orbit.update();dirty=true;run()});
+  $('#lab-shot').addEventListener('click',()=>{stopAuto();const wide=!wideShot;resetView();wideShot=wide;camera.position.copy(wideShot?new THREE.Vector3(1.1,3.5,8.4):home);orbit.target.copy(wideShot?new THREE.Vector3(-2.15,1.6,0):targetHome);$('#lab-shot').textContent=wideShot?'實驗台全景':'鏡頭特寫';orbit.update();dirty=true;run()});
+  gardenButton.addEventListener('click',()=>{stopAuto();const next=!inspectGarden;resetView();inspectGarden=next;gardenButton.setAttribute('aria-pressed',String(next));gardenButton.textContent=next?'返回全景':'景觀特寫';if(next){camera.position.set(1.9,3.3,6);orbit.target.set(4.6,1.1,0);rotaryHint.classList.add('used');canvas.dataset.view='garden';$('#lab-tip-text').textContent='Blender 景觀模型檢視 · 主畫面景深暫停，感光元件預覽仍可對焦';}else{$('#lab-tip-text').textContent='拖曳畫面旋轉 · 拖曳對焦環對焦';}orbit.update();dirty=true;run()});
   rearButton.addEventListener('click',()=>{stopAuto();const rear=!rearView;resetView();rearView=rear;rearButton.setAttribute('aria-pressed',String(rear));lab.classList.toggle('rear-view',rear);canvas.dataset.view=rear?'image-back':'lens';if(rear){camera.position.set(-12.5,3.1,3.2);orbit.target.set(-4.1,1.3,0);rotaryHint.classList.add('used');$('#lab-tip-text').textContent='36 × 24 mm CMOS · 背面影像僅在「成像透視」開啟時顯示';$('#announcement').textContent='已繞到 3:2 成像面背面。實際感光元件不透明，此處是成像透視示意。'}orbit.update();dirty=true;run()});
-  function savePhoto(){preview.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight,false);photoRT.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight);uniforms.resolution.value.set(sensorFormat.captureWidth,sensorFormat.captureHeight);renderPhoto();const url=photo.toDataURL('image/png');result.href=url;result.querySelector('img').src=url;result.hidden=false;preview.setSize(PREVIEW_W,PREVIEW_H,false);photoRT.setSize(PREVIEW_W,PREVIEW_H);uniforms.resolution.value.set(PREVIEW_W,PREVIEW_H);renderPhoto();flash.classList.remove('shoot');void flash.offsetWidth;flash.classList.add('shoot');$('#announcement').textContent='已拍攝 3:2 照片，可點左下角縮圖儲存。';dirty=true;run()}
-  function takePhoto(){if(shotStarted!==null)return;stopAuto();shotStarted=clock;shotSaved=false;shutter.disabled=true;$('#announcement').textContent='拍攝中：反光鏡升起、先幕開啟、後幕關閉。動作放慢以便觀察。';if(reduce.matches){updateOptics();savePhoto();shotStarted=null;shutter.disabled=false;}dirty=true;run()}
+  function savePhoto(){
+    const settings=shotSettings??shutterStops[shutterIndex],moving=!!rotor;
+    const times=exposureTimes(motionTime,settings.seconds,moving);let accumulated;
+    preview.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight,false);photoRT.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight);uniforms.resolution.value.set(sensorFormat.captureWidth,sensorFormat.captureHeight);
+    try{
+      accumulated=integrateExposure({renderer:preview,scene,camera:photoCamera,source:photoRT,times,pose:poseMotion});
+      uniforms.tColor.value=accumulated.texture;uniforms.exposure.value=exposureGain(aperture,settings.seconds);preview.render(screenScene,screenCamera);
+      gallery.add(photo.toDataURL('image/png'),`${settings.label} · ${focal} mm · f/${aperture} · 對焦 ${focus.toFixed(2)} m · ISO 100`);
+      canvas.dataset.captureSamples=String(times.length);canvas.dataset.captureShutter=String(settings.seconds);
+      $('#announcement').textContent='已拍攝 '+settings.label+'、3:2 照片。'+(moving&&times.length>1?'已累積曝光期間的風車運動。':'風車動作凍結。')+'已套用曝光模擬。'+'可在相簿放大檢視與切換照片。';
+    }catch(error){console.error('Photo exposure failed',error);$('#announcement').textContent='拍攝未完成，請重試。'}
+    finally{
+      uniforms.tColor.value=photoRT.texture;accumulated?.dispose();poseMotion(motionTime);
+      preview.setSize(PREVIEW_W,PREVIEW_H,false);photoRT.setSize(PREVIEW_W,PREVIEW_H);uniforms.resolution.value.set(PREVIEW_W,PREVIEW_H);renderPhoto();
+    }
+    flash.classList.remove('shoot');void flash.offsetWidth;flash.classList.add('shoot');dirty=true;run();
+  }
+  function takePhoto(){if(shotStarted!==null)return;stopAuto();shotSettings={...shutterStops[shutterIndex]};shotStarted=clock;shotSaved=false;shutter.disabled=true;$('#announcement').textContent='拍攝 '+shotSettings.label+'：機構動作放慢以便觀察，照片依設定曝光時間累積。';if(reduce.matches){updateOptics();savePhoto();shotStarted=null;shutter.disabled=false;}dirty=true;run()}
   shutter.addEventListener('click',takePhoto);
   photo.style.cursor='crosshair';photo.addEventListener('pointerdown',e=>e.stopPropagation());photo.addEventListener('click',event=>{const r=photo.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,photoCamera);const h=raycaster.intersectObjects(props.children,true)[0];if(h){setFocus(.35*Math.pow(20/.35,(h.point.x-1.8)/5.3));focusMode='AF-S'}});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeBody();lab.classList.remove('clean-view','parts-open');$('#lab-catalog').setAttribute('aria-expanded','false');diagram.hidden=true}if(!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){if(e.key.toLowerCase()==='h')lab.classList.toggle('clean-view');if(e.key===' '){e.preventDefault();takePhoto()}}});
+  document.addEventListener('keydown',e=>{if(gallery.isOpen)return;if(e.key==='Escape'){closeBody();lab.classList.remove('clean-view','parts-open');$('#lab-catalog').setAttribute('aria-expanded','false');diagram.hidden=true}if(!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){if(e.key.toLowerCase()==='h')lab.classList.toggle('clean-view');if(e.key===' '){e.preventDefault();takePhoto()}}});
   // Keep diagram controls connected to the 3D view as well.
   $('#aperture').addEventListener('input',e=>{aperture=apertureStops[Number(e.target.value)];$('#lab-aperture').value=e.target.value;$('#lab-aperture-value').textContent='f/'+aperture;stopAuto();updateOptics();run()});
   $('#focal').addEventListener('input',e=>{focal=Number(e.target.value);$('#lab-focal').value=e.target.value;$('#lab-focal-value').textContent=focal+' mm';stopAuto();updateOptics();run()});
   new IntersectionObserver(entries=>{visible=entries.at(-1).isIntersecting;if(visible)run()},{rootMargin:'100px'}).observe(wrap);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)run()});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)animationLoop.stop();else run()});
   reduce.addEventListener('change',()=>{if(reduce.matches)stopAuto();dirty=true;run()});
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();$('#lab-loading').classList.remove('ready');$('#lab-loading').removeAttribute('aria-hidden');$('#lab-loading').textContent='3D 顯示已暫停，重新載入頁面即可恢復。零件圖解仍可使用。';$('.technical-view').open=true;stopAuto()});
-  function run(){if(!frame&&visible&&!document.hidden){last=0;frame=requestAnimationFrame(tick)}}
-  function renderPhoto(){preview.setRenderTarget(photoRT);preview.render(scene,photoCamera);preview.setRenderTarget(null);preview.render(screenScene,screenCamera);sensorMap.needsUpdate=true;lastPhoto=clock}
-  function tick(now){
-    frame=0;if(!visible||document.hidden)return;const dt=last?Math.min((now-last)/1000,1/30):1/60;last=now;clock+=dt;
+  const animationLoop=createFrameLoop({draw:tick,visible:()=>visible&&!document.hidden,request:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle)});
+  function run(){animationLoop.request()}
+  function renderPhoto(){uniforms.exposure.value=previewGain(liveView,uniforms.aperture.value);preview.setRenderTarget(photoRT);preview.render(scene,photoCamera);preview.setRenderTarget(null);preview.render(screenScene,screenCamera);sensorMap.needsUpdate=true;lastPhoto=clock}
+  function tick(elapsed){
+    const dt=Math.min(elapsed,1/30);clock+=elapsed;
+    motionTime+=elapsed;poseMotion(motionTime);
     if(shotStarted!==null)dirty=true;
-    if(auto&&!reduce.matches){
-      const t=clock%22,keys=[{t:0,f:2,e:0},{t:4,f:2,e:0},{t:8,f:.65,e:.2},{t:12,f:2,e:1},{t:16,f:7,e:.6},{t:20,f:2,e:0},{t:22,f:2,e:0}];let j=0;while(j<keys.length-2&&t>keys[j+1].t)j++;const a=keys[j],b=keys[j+1],u=THREE.MathUtils.smoothstep(t,a.t,b.t);targetFocus=Math.exp(Math.log(a.f)*(1-u)+Math.log(b.f)*u);targetSpread=a.e+(b.e-a.e)*u;dirty=true;
+    if(auto){
+      demoTime+=elapsed;const demo=demoFrame(demoTime);targetFocus=demo.focus;targetSpread=demo.spread;focal=Math.round(demo.focal);aperture=Math.round(demo.aperture*10)/10;
+      $('#lab-focal').value=String(focal);$('#focal').value=String(focal);$('#lab-focal-value').textContent=focal+' mm';
+      const aperturePosition=apertureStops.reduce((best,value,i)=>Math.abs(value-aperture)<Math.abs(apertureStops[best]-aperture)?i:best,0);$('#lab-aperture').value=String(aperturePosition);$('#aperture').value=String(aperturePosition);$('#lab-aperture-value').textContent='f/'+aperture;
+      if(demoStatus.textContent!==demo.stage)demoStatus.textContent=demo.stage;dirty=true;
     }
-    const previous=focus;focus=reduce.matches?targetFocus:THREE.MathUtils.damp(focus,targetFocus,7,dt);spread=reduce.matches?targetSpread:THREE.MathUtils.damp(spread,targetSpread,5,dt);if(Math.abs(focus-targetFocus)<.0003)focus=targetFocus;if(Math.abs(spread-targetSpread)<.0003)spread=targetSpread;
+    const previous=focus;focus=reduce.matches&&!auto?targetFocus:THREE.MathUtils.damp(focus,targetFocus,7,dt);spread=reduce.matches&&!auto?targetSpread:THREE.MathUtils.damp(spread,targetSpread,5,dt);if(Math.abs(focus-targetFocus)<.0003)focus=targetFocus;if(Math.abs(spread-targetSpread)<.0003)spread=targetSpread;
     if(Math.abs(previous-focus)>.00001||dirty)updateOptics();
     for(let i=0;i<groups.length;i++)groups[i].position.x=groups[i].userData.rest+(5.5-i)*.16*spread;
     groups[3].rotation.x=focusAngle(focus);groups[4].rotation.x=(focal-24)/46*Math.PI*1.1;indexHousing.position.x=groups[3].position.x+.225;
@@ -310,9 +340,12 @@ function start(){
     if(exposure.done){shotStarted=null;shutter.disabled=false;updateOptics();dirty=true;}
     for(const pair of shells){pair.cut.visible=cutaway&&spread<.3;pair.full.visible=!pair.cut.visible}
     if(rayOn&&rayPaths.length&&!reduce.matches){const pos=photonsGeo.attributes.position;for(let i=0;i<9;i++){const t=(clock*.33+i*.113)%1,u=t*3,j=Math.min(2,Math.floor(u)),p=new THREE.Vector3().lerpVectors(rayPaths[i][j],rayPaths[i][j+1],u-j);pos.setXYZ(i,p.x,p.y,p.z)}pos.needsUpdate=true}
-    orbit.update();if(dirty||clock-lastPhoto>.1)renderPhoto();renderer.render(scene,camera);dirty=false;
-    canvas.dataset.ready='true';document.body.classList.remove('lab-booting');$('#lab-loading').classList.add('ready');$('#lab-loading').setAttribute('aria-hidden','true');
-    if(auto||rayOn&&!reduce.matches||stable&&!reduce.matches||focus!==targetFocus||spread!==targetSpread||drag||shotStarted!==null)frame=requestAnimationFrame(tick);
+    orbit.update();if(dirty||clock-lastPhoto>.1)renderPhoto();if(inspectGarden)renderer.render(scene,camera);else sceneFinish.render(scene,focus,focal,aperture);dirty=false;
+    if(canvas.dataset.studio){canvas.dataset.ready='true';document.body.classList.remove('lab-booting');$('#lab-loading').classList.add('ready');$('#lab-loading').setAttribute('aria-hidden','true');}
+    return true;
   }
-  select(3);updateOptics();resize();run();
+  buildAtelier({scene,props,bench,groups,body,nearX,midX,farX,label,materials,onRotor:value=>{rotor=value;poseMotion(motionTime)},onLoad:error=>{canvas.dataset.studio=error?'error':'ready';if(!error&&!userInteracted)startDemo();dirty=true;run()}});
+  document.querySelector('.immersive-brand>div').innerHTML='HUGO <small>光學工作室</small>';
+  document.querySelector('.lab-version').textContent='OPTICAL ATELIER / 001';
+  $('#lab-focal').value='24';$('#focal').value='24';$('#lab-focal-value').textContent='24 mm';select(3);updateOptics();resize();run();
 }

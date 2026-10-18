@@ -16,6 +16,28 @@ npm start
 
 ## 開發與建置
 
+### HUGO Optical Atelier
+
+工作室環境由 Blender 建模，含光學圖版、器材櫃、鏡片展示架、實驗台桌腳與立體品牌字。`assets/hugo-studio.blend` 是可編輯來源，`assets/hugo-studio.glb` 為網頁資產；建置時直接內嵌到 HTML，無須另外提供模型伺服器。
+
+重新產生工作室（Blender 5.2）：
+
+```powershell
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --python scripts/build-studio.py
+npm run build:lab
+```
+
+`atelier.js` 補充鏡組螺絲、銘牌與實驗台細節，並載入兩份 Blender 資產。`assets/hugo-landscape.blend` 包含可分開編輯的落地樹木、木屋、山脈、針葉林、景觀底座與風車；`scripts/build-landscape.py` 生成模型與 `assets/hugo-landscape.glb`。風車轉軸節點名為 `HUGO_WIND_ROTOR`，網頁依時間驅動葉片。
+
+```powershell
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --python scripts/build-landscape.py
+npm run build:lab
+```
+
+`scripts/render-landscape.py` 可從已儲存的景觀 `.blend` 輸出檢查用 PNG；它不會改寫模型來源。模型原始檔依類別分 Collection，網頁資產依材質合併幾何，減少繪製次數。
+
+鏡組和快門仍由原本機構程式控制。`scene-finish.js` 的主場景景深是沿示範光軸計算的視覺強化，與感光元件的薄透鏡景深預覽分開；不是逐片光線追跡。工作室位於教學相機圖層，不會進入成像預覽。
+
 ```sh
 npm ci
 npm test
@@ -27,6 +49,14 @@ npm run build
 ## 操作
 
 - 沿對焦環／變焦環拖曳，分別調整清晰距離與焦距。
+- 下方對焦滑桿與公尺輸入框可調整 0.35–20 m，並與 3D 對焦環同步。快捷鍵可選前景、小屋或遠山。
+- 光圈、焦距和快門速度集中在拍攝區；「拆解程度」位於上方展示工具。
+- 「景觀特寫」可近看 Blender 模型，主畫面暫停展示景深；感光元件預覽仍正常對焦。
+- 風車持續轉動，不提供暫停控制；可分別使用 1/1000 s 與 1/4 s 拍照比較凍結與拖影。
+- 「對焦／拆解導覽」是 32 秒循環，依序展示前景、小屋、遠山對焦、f/2.8–f/16 景深、24–70 mm 變焦、鏡組展開與組裝。手動調整相機或拖曳視角會停止導覽，風車仍持續轉動。
+- 預設 24 mm 廣角取景；天空與草地擴大覆蓋。底部並列對焦、光圈、焦距、快門，模式工具列收進同一底部控制區。成像面背面模式會隱藏 HUD 與取景預覽。
+- 拍攝後直接開啟頁內相簿，以大圖、縮圖與左右方向鍵瀏覽；每張顯示快門、焦距、光圈與對焦距離，也可單獨下載。按「繼續拍攝」返回場景，左下縮圖可重開相簿。本次頁面保留最近 24 張，重新整理會清除。
+- 小屋採原尺寸 75%，以地面為縮放基準，保留對焦位置並露出後方山脈。
 - 空白處拖曳旋轉視角，滾輪縮放。
 - 「單眼機身」切換取景方式、成像透視、成像圈與景深預覽。
 - 「零件圖鑑」查看 12 個主要零件的功能；「構造圖解」查看等角透視示意。
@@ -36,13 +66,20 @@ npm run build
 
 - `lab.js`、`camera-body.js`：3D 場景、互動與機身模型。
 - `camera-mechanics.mjs`、`optics.mjs`：機構時序、對焦、景深與模糊計算。
+- `motion-exposure.mjs`、`temporal-exposure.js`：快門時間與線性光時域累積，僅移動物件產生拖影。
 - `parts.mjs`：零件說明；`app.js`：構造圖互動。
 - `build.mjs`、`build-lab.mjs`：構造圖生成與獨立 HTML 打包。
-- `check-optics.mjs`、`check-mechanics.mjs`：光學與機構檢查。
+- `check-optics.mjs`、`check-mechanics.mjs`、`check-exposure.mjs`、`check-assets.mjs`：光學、機構、曝光取樣與 Blender 資產檢查。
 - `kit/`：Anatomy SVG 工具與其授權。
 
 ## 範圍與授權
 
 此展示以一般全片幅數位單眼與變焦鏡頭為基準，非特定品牌的維修模型。鏡片片數、曲率、配置及行程經教學簡化；光束並非逐片光線追跡。防手震為選配機構，對焦距離選取 0.35–20 m 作示範。構造參考連結列於「單眼機身」面板。
 
+快門範圍為 1/1000–1 秒。照片累積曝光期間的風車姿態，並依光圈與快門套用相對曝光，預覽亮度補償不影響照片；即時預覽顯示當下影像，拖影在拍攝結果中呈現。這不是完整曝光三角模擬，ISO 固定 100，未加入感光雜訊或高速快門狹縫掃描。機構動畫刻意放慢，時間與照片曝光分開。景深在時域累積後套用最後取樣的深度，因此動態物體邊緣與散景仍是近似結果。
+
 第三方程式使用 [Anatomy](https://github.com/wheresryan22/anatomy) 與 [Three.js](https://threejs.org/)，均採 MIT 授權；Anatomy 授權保留於 `kit/LICENSE`；Three.js 授權由已安裝套件帶入，兩者的完整文字均包含在輸出的 `index.html` 內。
+場景資產載入完成後會自動開始導覽。使用者點擊、觸控、滾輪或鍵盤操作即停止，保留當下設定；風車持續轉動。停止後不會自行恢復，可按導覽按鈕重新播放。若載入期間已操作，也不會在載入完成後強制開始。
+
+成像現在採用相對曝光：以 ISO 100、f/5.6、1/125 秒作單位亮度，曝光倍率為 (t × 125) × (5.6/N)²，在線性光域套用後才做色調映射。Live View 一律維持正常取景亮度，照片永遠依設定計算曝光；不再提供同時影響預覽與照片的補償開關。光學觀景窗亮度只跟隨實際開孔，不跟隨快門速度。
+散景採 48 點、全開近圓形／縮小近九邊形的取樣核，並減少清晰前景顏色滲入背景；繞射以 550 nm 光的 Airy 主瓣 Gaussian 近似處理，依感光面尺寸換算，未刻意放大。仍非完整光線追跡，遮擋邊緣、散景和長曝的深度處理有近似；沒有實作 Airy 環紋、色差、ISO 噪點與實際鏡頭透光損耗。

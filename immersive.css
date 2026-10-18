@@ -17,3 +17,198 @@ body.lab-booting .lab-toolbar,body.lab-booting .lab-focus-controls,body.lab-boot
 .immersive #lab-rear{font-size:9px;padding:7px 10px}.immersive #lab-rear[aria-pressed="true"]{border-color:#94d5df90;color:#c5eef0;background:#245362b0}.rear-view .lab-hud h2{font-size:21px}.rear-view #rotary-hint{opacity:0}@media(max-width:700px){.immersive #lab-rear{font-size:7px;padding:5px 7px}.rear-view .lab-hud h2{font-size:17px}}
 .immersive #photo-canvas,#last-photo img{aspect-ratio:3/2}.immersive .body-open .photo-panel{opacity:0;pointer-events:none}#body-profile{position:absolute;z-index:8;right:25px;top:90px;bottom:188px;width:330px;overflow:auto;scrollbar-width:thin;padding:22px;background:#101c25f5;border:1px solid #6d879752;border-radius:9px;backdrop-filter:blur(18px);box-shadow:0 15px 50px #0005}#body-profile>header{display:flex;justify-content:space-between;align-items:center;font:9px Consolas,monospace;letter-spacing:.08em;color:#93b3c0}#body-profile>header button{font-size:24px;line-height:1}#body-profile h2{font-size:19px;font-weight:400;margin:19px 0}#body-profile h3{font-size:13px;font-weight:500;margin:19px 0 10px;color:#d8c79e}#body-profile p{font-size:11px;line-height:1.9;color:#b4c7cc}#body-profile #body-state{font-size:9px;color:#96c8cf;border-bottom:1px solid #63899a36;padding-bottom:13px;min-height:48px}.body-view-modes,.body-teaching-controls{display:flex;gap:6px;flex-wrap:wrap}.body-view-modes button,.body-teaching-controls button{font-size:10px;padding:8px 10px;border:1px solid #64819550;border-radius:4px;color:#a7bbc3}.body-view-modes [aria-pressed=true],.body-teaching-controls [aria-pressed=true]{color:#ead7a7;border-color:#b39b6680;background:#5f4f2a45}.body-diagram-steps{display:grid;grid-template-columns:1fr 15px 1.4fr;align-items:center;gap:6px;text-align:center;color:#688b9d}.body-diagram-steps button{font-size:9px;padding:8px 3px;background:#293d4859;border-radius:3px}.body-diagram-steps .active{color:#e0d0a7;background:#69533244}.body-teaching-controls{border-top:1px solid #63899a36;padding-top:16px;margin-top:18px}#body-profile p.body-schematic-note{font-size:9px;color:#7f9ca9}.body-sources{font-size:8px;line-height:1.9;color:#6b8f9e;padding:12px 0}.body-sources a{color:#b4cbd2;text-decoration:underline;text-underline-offset:3px}.viewfinder-blackout #photo-canvas{visibility:hidden}.viewfinder-blackout:after{opacity:0}.clean-view #body-profile{opacity:0;pointer-events:none}#lab-shutter:disabled{opacity:.7;cursor:wait}@media(max-width:700px){#body-profile{top:75px;left:14px;right:14px;bottom:185px;width:auto;max-width:360px;margin-left:auto;padding:19px}.immersive-actions #lab-body{font-size:8px;padding:6px 8px}.body-view-modes button,.body-teaching-controls button{font-size:9px}#body-profile p{font-size:10px}#body-profile p.body-schematic-note{font-size:8px}.immersive .lab-hud .lab-kicker{max-width:130px;display:block;line-height:1.6}}
 #body-profile{scrollbar-color:#4b6575 transparent}
+.motion-controls{display:flex;align-items:center;gap:12px;padding:9px 20px;border-top:1px solid #68818c30;font-size:10px;color:#b9c7cb}.motion-controls select{background:#182731;color:#e5d2aa;border:1px solid #697e8255;border-radius:4px;padding:5px 7px;font:inherit}.motion-controls button{font:inherit;padding:5px 9px;border:1px solid #697e8255;border-radius:4px;color:#d5dfe0}.motion-controls small{margin-left:auto;color:#8fa6ae;font-size:9px}.immersive #lab-garden{font-size:9px;padding:7px 10px}.immersive #lab-garden[aria-pressed=true]{color:#e8d5a5;border-color:#b6a174}.clean-view .motion-controls{visibility:hidden}@media(max-width:700px){.motion-controls{padding:7px 10px;gap:6px;font-size:9px;flex-wrap:wrap}.motion-controls small{display:none}}
+/* Camera operation: always-visible focus controls, then optical/exposure settings. */
+.immersive .lab-focus-controls input#lab-focus{position:relative!important;width:100%!important;height:22px!important;opacity:1!important;overflow:visible!important;pointer-events:auto;margin:9px 0 1px}
+.immersive .lab-focus-controls .focus-ticks{position:relative!important;width:100%!important;height:auto!important;opacity:1!important;overflow:visible!important;display:flex;justify-content:space-between;font-size:8px;color:#8da5b0;margin-top:1px}
+.immersive .focus-entry{display:flex;align-items:center;gap:5px;margin-left:4px;color:#9db1b8}
+.immersive .lab-focus-controls input#focus-distance{position:relative!important;width:72px!important;height:28px!important;opacity:1!important;overflow:visible!important;pointer-events:auto;background:#13232d;color:#e9d8b5;border:1px solid #68818c70;border-radius:4px;padding:4px 7px;font:12px Consolas,monospace}
+.immersive .lab-speed{display:flex;align-items:center;gap:12px}.lab-speed select{flex:1;min-width:0;color:#e5d2aa;background:#182731;border:1px solid #697e8255;border-radius:4px;padding:5px;font:11px Consolas,monospace}
+.immersive .lab-toolbar{top:79px;bottom:auto;gap:12px}.immersive .lab-camera-tools{bottom:233px}.immersive .lab-tip{bottom:235px;max-width:40%;line-height:1.7}
+.structure-control{position:relative;color:#b2c3c9;font-size:9px}.structure-control summary{cursor:pointer;padding:6px}.structure-control>.lab-spread{position:absolute;top:32px;right:0;width:215px;padding:15px;display:flex;align-items:center;gap:10px;background:#14242ef5;border:1px solid #57707d80;border-radius:7px}.structure-control input{width:110px}.structure-control output{font:10px Consolas,monospace}
+.immersive .focus-topline{gap:10px}.immersive .focus-topline output{font-size:10px}.immersive .focus-topline .focus-presets{gap:4px}.immersive .lab-bottom-controls{gap:22px;padding-top:9px;padding-bottom:9px}.motion-controls{padding-top:7px;padding-bottom:7px}
+@media(max-width:700px){.immersive .lab-control-deck{width:calc(100vw - 28px);bottom:18px}.immersive .focus-topline{flex-wrap:wrap;gap:6px}.immersive .focus-presets{order:3;width:100%;margin:3px 0 0;justify-content:flex-start}.immersive .focus-entry{margin-left:auto}.immersive .lab-bottom-controls{grid-template-columns:1fr 1fr 1fr;gap:10px;padding:8px 10px}.immersive .lab-bottom-controls>div{flex-wrap:wrap;gap:4px}.immersive .lab-bottom-controls input{min-width:30px}.immersive .lab-speed select{width:100%;font-size:9px}.immersive .lab-toolbar{top:70px;gap:5px;padding:4px;max-width:calc(100vw - 20px)}.immersive .lab-modes button{padding:5px;font-size:8px}.immersive .lab-camera-tools{bottom:269px;right:12px;gap:3px}.immersive .lab-tip{display:none}.immersive #lab-shutter{right:7px;bottom:222px;width:42px;height:42px}.immersive #lab-shutter>span{width:30px;height:30px}.immersive .photo-panel{top:115px}.immersive .lab-hud{top:115px}}
+#motion-status{font-size:9px;color:#b3d8c8;white-space:nowrap}#demo-status{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);padding:5px 11px;border-radius:5px;background:#13232de8;font-size:10px;color:#dccba5;white-space:nowrap}.motion-controls{flex-wrap:wrap}.motion-controls small{font-size:8px}@media(max-width:700px){#motion-status{font-size:8px}.immersive #lab-play{max-width:110px;font-size:8px}}
+#photo-gallery{color:#e1e9e8;background:#101b24;border:1px solid #627c8a;border-radius:14px;width:min(1100px,94vw);max-width:94vw;max-height:94dvh;padding:20px;box-sizing:border-box;overflow:auto;box-shadow:0 25px 90px #0009}#photo-gallery::backdrop{background:#030a10d9;backdrop-filter:blur(10px)}#photo-gallery header{display:flex;justify-content:space-between;align-items:center;gap:12px}#photo-gallery h2{font-size:20px;margin:5px 0 14px}#photo-gallery small{font-size:9px;letter-spacing:.16em;color:#bda979}#photo-gallery button,#photo-gallery a{color:#dfe8e8;border:1px solid #6c87945c;background:#23333f;border-radius:7px;padding:9px 12px;cursor:pointer;font:inherit;font-size:12px}#photo-gallery button:focus-visible,#photo-gallery a:focus-visible{outline:2px solid #ead29b;outline-offset:3px}#photo-gallery button:disabled{opacity:.3;cursor:default}.gallery-stage{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:10px;background:#070d12;border-radius:8px;padding:10px}.gallery-image{display:block;width:100%;height:min(55dvh,600px);object-fit:contain}#photo-gallery .gallery-stage button{font-size:26px;padding:12px 0}.gallery-info{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}.gallery-info p{font-size:12px;line-height:1.7;margin:0}.gallery-info a{white-space:nowrap;text-decoration:none}.gallery-thumbnails{display:flex;gap:9px;overflow-x:auto;padding:6px 2px 12px}#photo-gallery .gallery-thumbnails button{flex:0 0 108px;padding:3px;background:transparent}#photo-gallery .gallery-thumbnails [aria-pressed=true]{border:2px solid #e0c58f;background:#685b3d}.gallery-thumbnails img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block;border-radius:3px}#photo-gallery footer{color:#91a7b3;font-size:11px;line-height:1.7}#last-photo{cursor:pointer}#last-photo:focus-visible{outline:2px solid #ead29b}@media(max-width:700px){#photo-gallery{padding:12px}.gallery-stage{grid-template-columns:28px minmax(0,1fr) 28px;gap:4px;padding:5px}.gallery-image{height:44dvh}.gallery-info{align-items:flex-start;flex-direction:column}#photo-gallery .gallery-thumbnails button{flex-basis:80px}}
+/* Compact camera dock keeps the center and sensor view clear. */
+.immersive .lab-control-deck{width:min(1000px,calc(100vw - 140px));bottom:20px;left:50%;transform:translateX(-50%)}
+.immersive .lab-control-deck .lab-toolbar{position:relative;inset:auto;transform:none;border:0;border-bottom:1px solid var(--line);border-radius:11px 11px 0 0;background:transparent;box-shadow:none;justify-content:center;padding:5px 10px;gap:14px;max-width:none}
+.immersive .lab-bottom-controls{grid-template-columns:1.3fr 1fr 1fr .85fr;gap:18px;padding:12px 16px;border:0;align-items:center}
+.immersive .lab-bottom-controls>div{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}
+.immersive .lab-bottom-controls input[type=range]{min-width:28px;width:100%;flex:1}
+.immersive .compact-focus output{font:10px Consolas,monospace;min-width:44px;white-space:nowrap}
+.immersive .lab-bottom-controls label{white-space:nowrap}.immersive .lab-speed select{width:auto}
+.immersive .lab-camera-tools{bottom:135px}.immersive .lab-tip{bottom:137px}
+.immersive .lab-hud h2,.immersive .lab-hud .lab-kicker{display:none}.immersive .lab-meters strong{font-size:17px}
+.immersive .lab-hud{top:90px}.immersive #last-photo{bottom:135px}
+.immersive #lab-shutter{bottom:21px;right:-72px;width:50px;height:50px}.immersive #lab-shutter>span{width:36px;height:36px}
+.structure-control>.lab-spread{top:auto;bottom:32px}#demo-status{top:auto;bottom:calc(100% + 6px)}
+.immersive .rear-view .lab-hud,.immersive .rear-view .photo-panel,.immersive .rear-view #rotary-hint{display:none}
+@media(max-width:700px){.immersive .lab-control-deck{left:10px;bottom:12px;transform:none;width:calc(100vw - 76px)}.immersive .lab-control-deck .lab-toolbar{gap:4px;justify-content:flex-start;overflow:visible;padding:5px}.immersive .lab-modes button{font-size:7px;padding:5px 3px}.immersive #lab-play{font-size:7px}.structure-control summary{font-size:7px;padding:4px}.immersive .lab-bottom-controls{gap:5px;padding:9px 6px}.immersive .lab-bottom-controls>div{flex-wrap:wrap;gap:3px}.immersive .lab-bottom-controls label{font-size:8px}.immersive .lab-bottom-controls input[type=range]{flex-basis:100%;order:3}.immersive .compact-focus output,.immersive .lab-bottom-controls output{font-size:8px;min-width:0}.immersive .lab-speed select{font-size:9px;width:100%}.immersive .lab-camera-tools{bottom:145px;right:12px}.immersive #last-photo{bottom:145px}.immersive #lab-shutter{right:-57px;bottom:22px;width:42px;height:42px}.immersive #lab-shutter>span{width:30px;height:30px}.immersive .photo-panel{top:90px}.immersive .lab-hud{top:90px}}
+/* Keep reference material and the live image in separate areas. */
+.immersive .lab-workspace>.detail-panel,.immersive #body-profile{left:25px;right:auto;top:90px;bottom:250px;width:315px;margin:0}
+.immersive .parts-open .photo-panel,.immersive .body-open .photo-panel{opacity:1;pointer-events:auto}
+.immersive .parts-open .lab-hud,.immersive .body-open .lab-hud{visibility:hidden}
+.immersive .scene-status-dock{position:absolute;left:32px;bottom:135px;max-width:calc(100% - 360px);display:flex;flex-direction:column;align-items:flex-start;gap:10px;z-index:5;pointer-events:none}
+.immersive .scene-status-dock #last-photo{position:static;flex:none;width:80px;pointer-events:auto;border-radius:8px;padding:5px;background:#12212de8}
+.immersive .scene-status-dock .lab-tip{position:static;max-width:240px;margin:0;line-height:1.8}
+.immersive .clean-view .scene-status-dock{opacity:0;pointer-events:none}
+.immersive .clean-view .scene-status-dock #last-photo{pointer-events:none}
+/* A viewport-sized lightbox: the image receives the remaining space. */
+#photo-gallery{width:min(1180px,calc(100vw - 40px));max-width:none;height:calc(100dvh - 40px);max-height:900px;padding:22px;overflow:hidden;border-color:#53687280;background:#101b23;border-radius:18px}
+#photo-gallery[open]{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;gap:14px}
+#photo-gallery h2{font-size:22px;margin:5px 0 0;font-weight:500;letter-spacing:.06em}
+#photo-gallery header{padding-bottom:4px}
+#photo-gallery button,#photo-gallery a{transition:background .15s,border-color .15s}
+#photo-gallery button:hover:not(:disabled),#photo-gallery a:hover{background:#30424b;border-color:#a4b6b9}
+#photo-gallery .gallery-stage{position:relative;display:block;min-height:0;padding:0;background:#080f14;border-radius:10px;overflow:hidden}
+#photo-gallery .gallery-image{width:100%;height:100%;min-height:0;object-fit:contain}
+#photo-gallery .gallery-stage button{position:absolute;top:50%;transform:translateY(-50%);z-index:1;width:38px;height:48px;padding:0;border-radius:24px;background:#16242cdd;font-size:26px}
+#photo-gallery [data-prev]{left:14px}#photo-gallery [data-next]{right:14px}
+#photo-gallery .gallery-info{margin:0;gap:12px}
+#photo-gallery .gallery-info p{color:#afc0c8;font:11px/1.8 Consolas,monospace}
+#photo-gallery .gallery-info a{background:transparent;font-size:11px}
+#photo-gallery .gallery-thumbnails{min-width:0;gap:8px;padding:4px;scrollbar-width:thin;scrollbar-color:#536872 transparent}
+#photo-gallery .gallery-thumbnails button{flex:0 0 72px;border:1px solid transparent;padding:3px;border-radius:6px}
+#photo-gallery .gallery-thumbnails [aria-pressed=true]{border-color:#e0c58f;background:#685b3d55}
+#photo-gallery footer{padding:0;color:#7c929f;font-size:10px;line-height:1.5}
+#photo-gallery.single-photo{grid-template-rows:auto minmax(0,1fr) auto auto}
+#photo-gallery.single-photo .gallery-thumbnails,#photo-gallery.single-photo .gallery-stage button{display:none}
+@media(max-width:700px){
+  .immersive .lab-workspace>.detail-panel,.immersive #body-profile{left:14px;right:14px;top:245px;bottom:150px;width:auto;max-width:none;padding:16px 20px 0}
+  .immersive .scene-status-dock{left:16px;bottom:145px;max-width:calc(100% - 200px)}
+  .immersive .scene-status-dock #last-photo{width:65px;flex-basis:65px}
+  .immersive .parts-open .scene-status-dock,.immersive .body-open .scene-status-dock{visibility:hidden}
+  #photo-gallery{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:none;padding:14px;border-radius:12px}
+  #photo-gallery[open]{gap:10px}#photo-gallery h2{font-size:18px}
+  #photo-gallery small{font-size:8px}#photo-gallery header button{font-size:10px;padding:8px}
+  #photo-gallery .gallery-info{flex-direction:row;align-items:center}
+  #photo-gallery .gallery-info p{font-size:10px}
+  #photo-gallery .gallery-stage button{width:30px;height:40px}
+  #photo-gallery [data-prev]{left:8px}#photo-gallery [data-next]{right:8px}
+}
+@media(max-height:650px) and (min-width:701px){.immersive .lab-workspace>.detail-panel,.immersive #body-profile{top:80px;bottom:150px;width:280px}.immersive .parts-open .scene-status-dock,.immersive .body-open .scene-status-dock{visibility:hidden}}
+@media(max-height:500px){#photo-gallery{padding:10px}#photo-gallery[open]{gap:6px}#photo-gallery .gallery-thumbnails button{flex-basis:48px}#photo-gallery h2{font-size:16px}#photo-gallery footer{font-size:9px}}
+.immersive .clean-view .photo-panel{opacity:0;pointer-events:none}
+@media(max-width:700px){.immersive .lab-workspace>.detail-panel,.immersive #body-profile{top:255px}}
+/* Keep preview, explanation switches and reference content in one inspector. */
+.immersive .camera-inspector{position:absolute;top:88px;right:25px;width:300px;max-height:calc(100dvh - 270px);display:flex;flex-direction:column;z-index:7;background:#101c25f2;border:1px solid #6d879752;border-radius:12px;box-shadow:0 12px 36px #0004;overflow:hidden;backdrop-filter:blur(18px)}
+.immersive .camera-inspector .photo-panel{position:relative;inset:auto;width:100%;flex:none;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}
+.immersive .camera-inspector #photo-canvas{display:block;width:100%;height:auto;max-height:22dvh;object-fit:contain;background:#080f14}
+.inspector-tabs{display:flex;flex:none;gap:4px;padding:8px 12px;border-top:1px solid #6d879733;border-bottom:1px solid #6d879733}
+.inspector-tabs button{flex:1;font:11px inherit;color:#93a9b5;padding:9px 6px;border:1px solid transparent;border-radius:5px;background:transparent;cursor:pointer}
+.inspector-tabs button[aria-expanded=true]{background:#bda57418;border-color:#bda57460;color:#e3cb94}
+.inspector-tabs button:hover{background:#ffffff0b}.inspector-tabs button:focus-visible{outline:2px solid #e3cb94;outline-offset:-2px}
+.immersive .camera-inspector>.detail-panel,.immersive .camera-inspector>#body-profile{position:static;inset:auto;width:auto;max-width:none;min-height:0;margin:0;padding:14px 16px;overflow:auto;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;scrollbar-width:thin;scrollbar-color:#4b6575 transparent;flex:0 1 auto}
+.immersive .camera-inspector>.detail-panel{display:none;flex-direction:column}
+.immersive .parts-open .camera-inspector>.detail-panel{display:flex}
+.immersive .camera-inspector .detail-top,.immersive .camera-inspector .part-identity,.immersive .camera-inspector .part-en,.immersive .camera-inspector .detail-rule{display:none}
+.immersive .camera-inspector #lab-part-select{margin:0 0 12px;padding:8px;font-size:11px;flex:none}
+.immersive .camera-inspector h2{font-size:19px;margin:0 0 9px;line-height:1.4}
+.immersive .camera-inspector #part-title{margin:0 0 12px;font-size:12px;color:#d9c599}
+.immersive .camera-inspector .part-action{font-size:11px;line-height:1.8;margin:5px 0 12px}
+.immersive .camera-inspector .detail-label{font-size:10px;color:#8fa8b4}
+.immersive .camera-inspector .part-pager{margin:12px 0 0;padding:8px 0 0;border-top:1px solid #6d879733;flex:none}
+.immersive .camera-inspector .part-pager button{padding:6px 12px}
+.inspector-more{flex:none;border-top:1px solid #6d879733}
+.inspector-more>summary{padding:10px 0;font-size:10px;color:#a4b7c0;cursor:pointer}
+.immersive .camera-inspector .mini-art{height:65px;margin:0 0 8px;flex:none}.immersive .camera-inspector .mini-art svg{height:65px}
+.immersive .camera-inspector .part-desc{font-size:11px;line-height:1.8}
+.immersive .camera-inspector .fact{margin:8px 0;padding:10px}
+.immersive .camera-inspector #body-profile h2{margin:10px 0;font-size:17px}
+.immersive .parts-open .lab-hud,.immersive .body-open .lab-hud{visibility:visible}
+.immersive .clean-view .camera-inspector{opacity:0;pointer-events:none;visibility:hidden}
+body.lab-booting .camera-inspector{visibility:hidden}
+@media(max-width:700px){
+ .immersive .camera-inspector{top:76px;right:12px;width:min(280px,calc(100vw - 24px));max-height:calc(100dvh - 235px)}
+ .immersive .camera-inspector #photo-canvas{max-height:18dvh}
+ .immersive .camera-inspector>.detail-panel,.immersive .camera-inspector>#body-profile{padding:12px 14px}
+ .immersive .camera-inspector .photo-panel>div:first-child{font-size:9px}.immersive .camera-inspector .photo-footer{font-size:8px}
+ .immersive .camera-inspector .photo-footer>span:last-child{font-size:7px}
+ .immersive .parts-open .lab-hud,.immersive .body-open .lab-hud{visibility:hidden}
+}
+@media(max-height:650px){.immersive .camera-inspector{top:74px;max-height:calc(100dvh - 235px)}.immersive .camera-inspector #photo-canvas{max-height:17dvh}}
+.immersive .camera-inspector{max-height:calc(100dvh - 210px)}
+.immersive .camera-inspector #photo-canvas{max-height:18dvh}
+.inspector-tabs button{font:inherit;font-size:11px;padding:7px 6px}
+@media(min-width:701px){.immersive .parts-open .lab-camera-tools,.immersive .body-open .lab-camera-tools{right:345px}}
+@media(max-width:700px){.immersive .camera-inspector{max-height:calc(100dvh - 235px)}.immersive .camera-inspector #photo-canvas{max-height:18dvh}}
+@media(max-height:650px){.immersive .camera-inspector #photo-canvas{max-height:14dvh}}
+/* Readable type scale: body 16px, controls 14px, supporting data 12px. */
+.immersive #lab{--reading-text:#dce5e9;--reading-muted:#b1c3cd}
+.immersive .camera-inspector{width:360px;background:#101c25fa}
+.immersive .camera-inspector>.detail-panel,.immersive .camera-inspector>#body-profile{padding:18px 20px;overflow-wrap:anywhere}
+.immersive .camera-inspector .part-action,.immersive .camera-inspector .part-desc,.immersive .camera-inspector .fact p,.immersive .camera-inspector #body-profile p{font-size:16px;line-height:1.7;color:var(--reading-text)}
+.immersive .camera-inspector h2,.immersive .camera-inspector #body-profile h2{font-size:22px;line-height:1.4;margin:0 0 12px}
+.immersive .camera-inspector #part-title,.immersive .camera-inspector #body-profile h3{font-size:16px;line-height:1.6;margin:0 0 14px;color:#e4d1a6}
+.immersive .camera-inspector .detail-label{font-size:13px;color:var(--reading-muted)}
+.immersive .camera-inspector #lab-part-select{font-size:14px;min-height:42px;padding:9px;margin-bottom:16px}
+.immersive .inspector-tabs button{font-size:14px;min-height:42px;padding:9px;color:var(--reading-muted)}
+.immersive .inspector-tabs button[aria-expanded=true]{color:#edd6a2}
+.immersive .inspector-more>summary{font-size:14px;line-height:1.5;padding:13px 0;color:var(--reading-muted)}
+.immersive .camera-inspector .part-pager{gap:8px;align-items:center}
+.immersive .camera-inspector .part-pager button{font-size:18px;min-width:42px;min-height:42px}
+.immersive .camera-inspector #pager-label{font-size:12px;overflow-wrap:anywhere;text-align:center}
+.immersive .camera-inspector #body-profile>header,.immersive .camera-inspector #body-profile #body-state,.immersive .camera-inspector .body-sources{font-size:13px;line-height:1.7;color:var(--reading-muted)}
+.immersive .camera-inspector .body-view-modes button,.immersive .camera-inspector .body-teaching-controls button,.immersive .camera-inspector .body-diagram-steps button,.immersive .camera-inspector .stabilize{font-size:14px;line-height:1.5;min-height:40px}
+.immersive .camera-inspector .photo-panel>div:first-child{font-size:14px;gap:8px;flex-wrap:wrap;padding:10px 14px}
+.immersive .camera-inspector .photo-panel>div:first-child>span:last-child{font-size:12px;color:#c6dba6}
+.immersive .camera-inspector .photo-footer,.immersive .camera-inspector .photo-footer>span:last-child{font-size:12px;line-height:1.5;color:var(--reading-muted)}
+.immersive .camera-inspector .photo-footer{display:flex;flex-wrap:wrap;gap:6px 12px;padding:10px 14px}
+.immersive .immersive-actions button{font-size:14px;min-height:40px}
+.immersive .lab-meters>div>span{font-size:12px;color:var(--reading-muted)}
+.immersive .lab-meters strong{font-size:22px}.immersive .lab-meters small{font-size:14px}
+.immersive .scene-status-dock .lab-tip{font-size:13px;line-height:1.6;color:var(--reading-muted);max-width:300px}
+.immersive .scene-status-dock #last-photo{width:108px;flex-basis:auto}
+.immersive .scene-status-dock #last-photo span{font-size:12px;line-height:1.5;color:var(--reading-text)}
+.immersive #rotary-hint>div{font-size:16px}.immersive #rotary-hint small{font-size:13px;line-height:1.6;color:var(--reading-muted)}
+.immersive .lab-modes button,.immersive #lab-play,.immersive .structure-control summary,.immersive .lab-bottom-controls label,.immersive .lab-bottom-controls output,.immersive .compact-focus output,.immersive .lab-speed select{font-size:14px}
+.immersive .lab-bottom-controls output,.immersive .compact-focus output{min-width:50px}
+.immersive .lab-control-deck .lab-toolbar{flex-wrap:wrap;gap:8px 14px}
+.immersive .lab-modes button,.immersive #lab-play{min-height:36px}
+.immersive .lab-camera-tools{flex-wrap:wrap;max-width:340px;justify-content:flex-end}
+.immersive .lab-camera-tools button,.immersive #lab-shot,.immersive #lab-rays,.immersive #lab-rear,.immersive #lab-garden{font-size:13px;line-height:1.4;min-height:36px;padding:7px 10px}
+.immersive .lab-camera-tools{bottom:155px}
+.immersive .scene-status-dock{bottom:155px}
+.immersive #lab-shutter:after{font-size:12px}
+#photo-gallery .gallery-info p,#photo-gallery footer{font-size:13px;line-height:1.6;color:#b1c3cd}
+#photo-gallery button,#photo-gallery a,#photo-gallery .gallery-info a,#photo-gallery header button{font-size:14px;min-height:40px}
+#photo-gallery small{font-size:12px}
+#photo-gallery h2{font-size:22px}
+@media(min-width:701px){.immersive .parts-open .lab-camera-tools,.immersive .body-open .lab-camera-tools{right:405px}}
+@media(max-width:1000px){
+ .immersive .lab-bottom-controls{grid-template-columns:1fr 1fr;gap:12px 20px}
+ .immersive .lab-camera-tools,.immersive .scene-status-dock{bottom:205px}
+ .immersive .camera-inspector{max-height:calc(100dvh - 290px)}
+}
+@media(max-width:700px){
+ .immersive .camera-inspector{right:12px;width:min(360px,calc(100vw - 24px));max-height:calc(100dvh - 305px)}
+ .immersive .camera-inspector>.detail-panel,.immersive .camera-inspector>#body-profile{padding:16px}
+ .immersive .camera-inspector #lab-part-select{font-size:16px}
+ .immersive .lab-control-deck{width:calc(100vw - 76px)}
+ .immersive .lab-control-deck .lab-toolbar{gap:4px;padding:6px;justify-content:flex-start}
+ .immersive .lab-modes{display:flex;flex-wrap:wrap}
+ .immersive .lab-modes button,.immersive #lab-play,.immersive .structure-control summary{font-size:14px}
+ .immersive .lab-bottom-controls{grid-template-columns:1fr 1fr;padding:10px;gap:10px}
+ .immersive .lab-bottom-controls>div{flex-wrap:wrap;gap:4px}
+ .immersive .lab-bottom-controls label,.immersive .lab-bottom-controls output,.immersive .compact-focus output,.immersive .lab-speed select{font-size:14px}
+ .immersive .lab-speed select{font-size:16px}
+ .immersive .lab-bottom-controls input[type=range]{flex-basis:100%;height:22px}
+ .immersive .lab-camera-tools{bottom:245px;max-width:calc(100vw - 24px)}
+ .immersive .scene-status-dock{bottom:245px}
+ .immersive .parts-open .lab-camera-tools,.immersive .body-open .lab-camera-tools{display:none}
+ .immersive .lab-hud{display:none}
+ #photo-gallery .gallery-info{flex-wrap:wrap}
+}
+@media(max-width:700px){
+ .immersive .camera-inspector{max-height:calc(100dvh - 325px)}
+ .immersive .lab-control-deck .lab-toolbar{column-gap:10px;row-gap:6px}
+}
+/* Reserve a separate column for the photo above the navigation hint. */
+@media(min-width:701px) and (max-width:1000px){
+ .immersive .scene-status-dock{max-width:clamp(108px,calc(100vw - 700px),300px)}
+ .immersive .parts-open .lab-camera-tools,.immersive .body-open .lab-camera-tools{max-width:min(340px,calc(100vw - 580px))}
+}
+@media(max-width:700px){
+ .immersive .lab-camera-tools{max-width:calc(100vw - 152px)}
+}

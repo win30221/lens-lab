@@ -3,3 +3,5 @@
 /.openai/
 /.sites-runtime/
 *.log
+*.blend1
+*.blend2
