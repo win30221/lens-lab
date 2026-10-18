@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {depthOfField,blurCircle,focusFromSlider,sliderFromFocus,exposureGain,previewGain,diffractionSigma} from './optics.mjs';
+import {depthOfField,blurCircle,focusFromSlider,sliderFromFocus,exposureGain,relativeExposureEV,previewGain,diffractionSigma} from './optics.mjs';
 for(const distance of [.35,.65,2,7,20])assert.ok(Math.abs(focusFromSlider(sliderFromFocus(distance))-distance)<1e-10);
 assert.equal(blurCircle(50,2.8,2,2),0);
 const open=depthOfField(50,2.8,2),closed=depthOfField(50,16,2);
@@ -36,3 +36,16 @@ for(const aperture of [2.8,5.6,16])for(const seconds of [1/1000,1/125,1]){
 }
 assert.equal(previewGain(false,2.8),1);
 assert.equal(previewGain(false,5.6),.25,'Optical DOF preview dims when the iris closes');
+for(let nd=0;nd<=10;nd++){
+  assert.equal(exposureGain(5.6,1/125,nd),2**(-nd),'Each ND stop halves captured light');
+  assert.equal(relativeExposureEV(5.6,1/125,nd),nd===0?0:-nd,'ND subtracts exposure stops');
+  assert.equal(previewGain(true,16,nd),1,'Normal Live View compensates ND');
+  assert.equal(previewGain(false,5.6,nd),.25*2**(-nd),'Optical finder includes ND attenuation');
+}
+assert.ok(Math.abs(relativeExposureEV(16,1,4))<.1,'One second with f/16 and four-stop ND approaches baseline');
+for(const iso of [100,200,400,800,1600,3200,6400]){
+  assert.equal(exposureGain(5.6,1/125,0,iso),iso/100,'ISO scales output gain');
+  assert.equal(relativeExposureEV(5.6,1/125,0,iso),Math.log2(iso/100),'ISO updates relative EV');
+}
+assert.equal(exposureGain(5.6,1/250,0,200),exposureGain(5.6,1/125,0,100),'Double ISO compensates half shutter duration');
+assert.equal(exposureGain(5.6,1/125,3,800),1,'Three ND stops offset ISO 800 gain');

@@ -2,7 +2,7 @@ import {sensorFragment} from './sensor-shader.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {apertureStops,focusFromSlider,sliderFromFocus,sceneX,depthOfField,exposureGain,previewGain,diffractionSigma} from './optics.mjs';
+import {isoStops,apertureStops,focusFromSlider,sliderFromFocus,sceneX,depthOfField,exposureGain,relativeExposureEV,previewGain,diffractionSigma} from './optics.mjs';
 import {parts as partProfiles} from './parts.mjs';
 import {sensorFormat,focusOffset,stabilizationOffset,exposureState} from './camera-mechanics.mjs';
 import {createCameraBody} from './camera-body.js';
@@ -38,7 +38,7 @@ function start(){
   const gardenButton=document.createElement('button');gardenButton.id='lab-garden';gardenButton.textContent='景觀特寫';gardenButton.setAttribute('aria-pressed','false');gardenButton.title='檢視 Blender 景觀模型；暫停主畫面的展示景深';shotButton.after(gardenButton);let inspectGarden=false;
   const rearButton=document.createElement('button');rearButton.id='lab-rear';rearButton.textContent='成像面背面';rearButton.setAttribute('aria-pressed','false');rearButton.title='從機身後方觀看 3:2 成像透視';shotButton.after(rearButton);
   const bodyButton=document.createElement('button');bodyButton.id='lab-body';bodyButton.textContent='單眼機身';bodyButton.setAttribute('aria-expanded','false');$('#lab-catalog').after(bodyButton);
-  const bodyPanel=document.createElement('aside');bodyPanel.id='body-profile';bodyPanel.hidden=true;bodyPanel.setAttribute('aria-label','單眼機身構造與操作');bodyPanel.innerHTML=`<header><span>DSLR / 全片幅單眼</span><button id="body-close" aria-label="關閉機身說明">×</button></header><h2>一條光路，兩種取景。</h2><div class="body-view-modes" role="group" aria-label="取景方式"><button id="view-live" aria-pressed="true">Live View</button><button id="view-optical" aria-pressed="false">光學觀景窗</button></div><p id="body-state" role="status"></p><div class="body-diagram-steps"><button data-body-part="mirror">反光鏡</button><span>→</span><button data-body-part="prism">對焦屏／五稜鏡</button><button data-body-part="shutter">快門簾</button><span>→</span><button data-body-part="sensor">CMOS</button></div><h3 id="body-part-title">CMOS 感光元件</h3><p id="body-part-desc"></p><div class="body-teaching-controls"><button id="sensor-xray" aria-pressed="true">成像透視：開</button><button id="sensor-circle" aria-pressed="false">顯示成像圈</button></div><p class="body-schematic-note">36 × 24 mm、3:2 全片幅。實際感光元件不透明；透視模式將成像顯示在正反面，便於觀察倒像。機身外殼移除，快門動作放慢。</p><p class="body-schematic-note">Live View 維持取景亮度並展示景深；照片依固定 ISO 100、光圈與快門計算曝光。兩者皆使用九葉片散景與繞射近似。以 f/5.6、1/125 秒為場景曝光基準，並非測光校準。鏡頭採一般 24–70 mm 變焦結構示意；片數、曲率、鏡組行程與接環依型號不同。防手震為選配機構。</p><div class="body-sources">構造依據：<a href="https://global.canon/en/technology/dslr2021s.html" target="_blank" rel="noopener">Canon 單眼機構</a> · <a href="https://www.nikonusa.com/c/lenses/dslr-lenses/technology" target="_blank" rel="noopener">NIKKOR 鏡頭技術</a> · <a href="https://www.zeiss.com/photonics-and-optics/us/cinematography/know-how-hub/lens-illumination.html" target="_blank" rel="noopener">ZEISS 成像圈</a></div>`;lab.append(bodyPanel);
+  const bodyPanel=document.createElement('aside');bodyPanel.id='body-profile';bodyPanel.hidden=true;bodyPanel.setAttribute('aria-label','單眼機身構造與操作');bodyPanel.innerHTML=`<header><span>DSLR / 全片幅單眼</span><button id="body-close" aria-label="關閉機身說明">×</button></header><h2>一條光路，兩種取景。</h2><div class="body-view-modes" role="group" aria-label="取景方式"><button id="view-live" aria-pressed="true">Live View</button><button id="view-optical" aria-pressed="false">光學觀景窗</button></div><p id="body-state" role="status"></p><div class="body-diagram-steps"><button data-body-part="mirror">反光鏡</button><span>→</span><button data-body-part="prism">對焦屏／五稜鏡</button><button data-body-part="shutter">快門簾</button><span>→</span><button data-body-part="sensor">CMOS</button></div><h3 id="body-part-title">CMOS 感光元件</h3><p id="body-part-desc"></p><div class="body-teaching-controls"><button id="sensor-xray" aria-pressed="true">成像透視：開</button><button id="sensor-circle" aria-pressed="false">顯示成像圈</button></div><p class="body-schematic-note">36 × 24 mm、3:2 全片幅。實際感光元件不透明；透視模式將成像顯示在正反面，便於觀察倒像。機身外殼移除，快門動作放慢。</p><p class="body-schematic-note">Live View 預設補償取景亮度，可另開啟曝光模擬；照片依所選 ISO、光圈、快門與 ND 計算曝光；ISO 100–6400 模擬輸出增益，尚未模擬感光雜訊。成像示意在拍攝後保留結果 3 秒。兩者皆使用九葉片散景與繞射近似。以 f/5.6、1/125 秒為場景曝光基準，並非測光校準。鏡頭採一般 24–70 mm 變焦結構示意；片數、曲率、鏡組行程與接環依型號不同。防手震為選配機構。</p><div class="body-sources">構造依據：<a href="https://global.canon/en/technology/dslr2021s.html" target="_blank" rel="noopener">Canon 單眼機構</a> · <a href="https://www.nikonusa.com/c/lenses/dslr-lenses/technology" target="_blank" rel="noopener">NIKKOR 鏡頭技術</a> · <a href="https://www.zeiss.com/photonics-and-optics/us/cinematography/know-how-hub/lens-illumination.html" target="_blank" rel="noopener">ZEISS 成像圈</a></div>`;lab.append(bodyPanel);
   const partSelect=document.createElement('select');partSelect.id='lab-part-select';partSelect.setAttribute('aria-label','選擇鏡頭零件');partSelect.innerHTML=partProfiles.map((p,i)=>`<option value="${i}">${String(i+1).padStart(2,'0')}　${p.name}</option>`).join('');$('.detail-top').after(partSelect);
   const inspector=document.createElement('aside');inspector.className='camera-inspector';inspector.setAttribute('aria-label','取景與構造說明');lab.append(inspector);
   const inspectorTabs=document.createElement('div');inspectorTabs.className='inspector-tabs';inspectorTabs.setAttribute('role','group');inspectorTabs.setAttribute('aria-label','構造說明');inspectorTabs.append($('#lab-catalog'),bodyButton);
@@ -57,6 +57,30 @@ function start(){
   const focusField=document.createElement('div');focusField.className='compact-focus';const focusLabel=document.createElement('label');focusLabel.htmlFor='lab-focus';focusLabel.textContent='對焦';focusField.append(focusLabel,$('#lab-focus'),$('#focus-label'));$('.lab-bottom-controls').prepend(focusField);$('.lab-focus-controls').remove();deck.prepend($('.lab-toolbar'));
   const flash=document.createElement('div');flash.id='shutter-flash';wrap.append(flash);
   const gallery=createPhotoGallery(wrap);
+  const exposureControls=document.createElement('div');exposureControls.className='exposure-controls';
+  exposureControls.innerHTML=`<div><label for="nd-stops">ND 減光</label><select id="nd-stops">${Array.from({length:11},(_,n)=>`<option value="${n}">${n?`減 ${n} 級`:'無'}</option>`).join('')}</select><button id="exposure-preview" aria-pressed="false">曝光模擬：關</button></div><output id="exposure-reading" aria-label="相對基準曝光"></output><p id="preview-note"></p><p class="sensor-note">機身內影像為成像示意；感光元件本身不會顯示照片。</p>`;
+  deck.append(exposureControls);
+  moreBody.append(exposureControls.querySelector('.sensor-note'));
+  $('#preview-note').className='sr-only';
+  $('#exposure-preview').setAttribute('aria-describedby','preview-note');
+  $('#exposure-reading').title='以 f/5.6、1/125 秒、ISO 100、無 ND 為基準；不是畫面測光。';
+  $('.photo-panel>div:first-child>span:first-child').textContent='取景預覽';
+  const teaching=document.createElement('section');teaching.className='teaching-tools';teaching.setAttribute('aria-label','教學展示');
+  teaching.innerHTML='<span class="teaching-label">教學展示</span><div class="teaching-row"><label for="display-mode">展示模式</label><select id="display-mode"><option value="cutaway">透視剖面</option><option value="assembled">完整組裝</option><option value="exploded">爆炸拆解</option></select><label for="view-angle">觀看角度</label><select id="view-angle"><option value="home">實驗台全景</option><option value="lens">鏡頭特寫</option><option value="rear">成像面背面</option><option value="garden">景觀特寫</option></select></div>';
+  lab.append(teaching);teaching.append($('.lab-toolbar'),$('.lab-camera-tools'));
+  $('.lab-modes').hidden=true;structureControl.hidden=true;
+  for(const id of ['lab-shot','lab-rear','lab-garden'])$('#'+id).hidden=true;
+  $('#display-mode').addEventListener('change',e=>{stopAuto();setMode(e.target.value)});
+  $('#view-angle').addEventListener('change',e=>{const view=e.target.value;resetView();if(view==='home')$('#lab-reset').click();else $('#'+({lens:'lab-shot',rear:'lab-rear',garden:'lab-garden'}[view])).click();$('#view-angle').value=view});
+  const isoField=document.createElement('div');isoField.className='lab-speed lab-iso';
+  isoField.innerHTML=`<label for="iso-speed">ISO</label><select id="iso-speed">${isoStops.map(value=>`<option value="${value}">${value}</option>`).join('')}</select>`;
+  isoField.title='ISO 增益模擬；尚未模擬感光雜訊。';
+  const primaryControls=$('.lab-bottom-controls');
+  primaryControls.append(focusField,$('#lab-focal').parentElement,$('#lab-aperture').parentElement,speedField,isoField,shutter);
+  const exposureBadge=document.createElement('span');exposureBadge.id='exposure-badge';exposureBadge.setAttribute('role','status');$('.photo-panel>div:first-child').after(exposureBadge);
+  const exposureScale=document.createElement('span');exposureScale.className='exposure-scale';exposureScale.setAttribute('aria-hidden','true');exposureScale.innerHTML='<span>−3</span><span class="exposure-track"><i></i><b>0</b></span><span>+3</span>';
+  $('#exposure-reading').before(exposureScale);
+  $('#nd-stops').title='外加 ND 濾鏡模擬；每減一級，進光量減半。';
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x111a22);scene.fog=new THREE.FogExp2(0x111a22,.018);
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0x111a22);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
   const PREVIEW_W=sensorFormat.previewWidth,PREVIEW_H=sensorFormat.previewHeight;
@@ -64,7 +88,7 @@ function start(){
   const camera=new THREE.PerspectiveCamera(34,1,.1,100),home=new THREE.Vector3(3.4,4.1,17.8),targetHome=new THREE.Vector3(.3,1.35,0);camera.position.copy(home);
   const sceneFinish=createSceneFinish(renderer,camera);
   const orbit=new OrbitControls(camera,canvas);orbit.target.copy(targetHome);orbit.enableDamping=true;orbit.dampingFactor=.075;orbit.enablePan=false;orbit.minDistance=4.2;orbit.maxDistance=25;orbit.minPolarAngle=.4;orbit.maxPolarAngle=Math.PI*.485;orbit.rotateSpeed=.55;orbit.zoomSpeed=.7;orbit.update();
-  $('.photo-footer').title='取景亮度已補償，保留景深變化；拍下照片才套用光圈、快門與 ISO 100 的曝光。';
+  $('.photo-footer').title='取景亮度已補償，保留景深變化；拍下照片才套用光圈、快門與所選 ISO 的曝光。';
   const photoCamera=new THREE.PerspectiveCamera(25,sensorFormat.aspect,.1,30);photoCamera.position.set(.9,1.35,0);photoCamera.lookAt(7.5,1.35,0);camera.layers.enable(1);
   const studio=document.createElement('canvas');studio.width=512;studio.height=256;const envCtx=studio.getContext('2d');
   const envGrad=envCtx.createLinearGradient(0,0,0,256);envGrad.addColorStop(0,'#a6bbcd');envGrad.addColorStop(.43,'#28343e');envGrad.addColorStop(.5,'#0a1016');envGrad.addColorStop(1,'#26313a');envCtx.fillStyle=envGrad;envCtx.fillRect(0,0,512,256);
@@ -159,7 +183,9 @@ function start(){
     for(const z of [-.75,.75]){cylinder(bench,.05,.025,x,.665,z,chrome,undefined,18)}
   }
   // The body and its rectangular sensor are separate from the lens assembly.
-  const sensorMap=new THREE.CanvasTexture(photo);sensorMap.colorSpace=THREE.SRGBColorSpace;
+  const sensorImage=document.createElement('canvas');sensorImage.width=PREVIEW_W;sensorImage.height=PREVIEW_H;
+  const sensorContext=sensorImage.getContext('2d');
+  const sensorMap=new THREE.CanvasTexture(sensorImage);sensorMap.colorSpace=THREE.SRGBColorSpace;
   sensorMap.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   const body=createCameraBody({scene,texture:sensorMap,box,label,metal,dark,chrome,axisY:LENS_Y});
   // Procedural sample scene: three genuinely spatial subjects at the marked distances.
@@ -187,8 +213,13 @@ function start(){
   const screenScene=new THREE.Scene(),screenCamera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);screenScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),blurMaterial));
   let focus=2,targetFocus=2,focal=24,aperture=5.6,spread=0,targetSpread=0,auto=false,clock=0,demoTime=0,visible=true,dirty=true,rayOn=true,drag=null,lastPhoto=0,focusMode='MF',wideShot=false,rearView=false,liveView=true,sensorXray=true,showImageCircle=false,dofPreview=false,shotStarted=null,shotSaved=false;
   let rotor=null,motionTime=0,shutterIndex=2,shotSettings=null;
+  let iso=100,ndStops=0,exposurePreview=false,sensorReviewUntil=0;
+  $('#iso-speed').addEventListener('change',e=>{iso=Number(e.target.value);stopAuto();syncControls();dirty=true;run()});
+  $('#nd-stops').addEventListener('change',e=>{ndStops=Number(e.target.value);stopAuto();syncControls();dirty=true;run()});
+  $('#exposure-preview').addEventListener('click',()=>{exposurePreview=!exposurePreview;stopAuto();syncControls();dirty=true;run()});
   function poseMotion(time){if(rotor)rotor.rotation.x=time*rotorAngularSpeed;canvas.dataset.rotorAngle=String(time*rotorAngularSpeed)}
-  const demoStatus=document.createElement('span');demoStatus.id='demo-status';demoStatus.setAttribute('role','status');demoStatus.hidden=true;$('.lab-toolbar').append(demoStatus);
+  let demoPaused=false;
+  const demoStatus=document.createElement('span');demoStatus.id='demo-status';demoStatus.setAttribute('role','status');demoStatus.hidden=true;demoStatus.dataset.state='playing';teaching.append(demoStatus);
   $('#lab-play').title='32 秒循環：對焦 → 光圈景深 → 廣角／望遠 → 鏡組拆解';
   $('#shutter-speed').addEventListener('change',e=>{shutterIndex=Number(e.target.value);canvas.dataset.shutterSeconds=String(shutterStops[shutterIndex].seconds);dirty=true;run()});
   const bodyDescriptions={sensor:['CMOS 感光元件','一般全片幅單眼使用約 36 × 24 mm 的長方形感光區，記錄鏡頭成像圈內的 3:2 畫面。它把光轉換為電訊號，並不是另一片透鏡。此處只有透視模式會從背面顯示影像。'],mirror:['快速回復反光鏡','光學取景時，約 45° 的反光鏡把光向上送到對焦屏與五稜鏡。拍照時反光鏡先升起，讓光線抵達快門與感光元件；Live View 則保持升起。'],shutter:['焦平面快門','快門位於感光元件前方。先幕開始曝光、後幕結束曝光；拍攝完成後再復位。按下快門可觀察放慢的動作，這裡示範完全開啟的曝光，不模擬高速狹縫掃描。'],prism:['對焦屏、五稜鏡與接目鏡','反光鏡將光送至對焦屏，再經五稜鏡轉向與校正，讓光學觀景窗呈現正立影像。部分入門單眼以五面鏡替代五稜鏡。感光元件與上方對焦屏是不同的平面。']};
@@ -197,16 +228,32 @@ function start(){
   function closeBody(){bodyPanel.hidden=true;bodyButton.setAttribute('aria-expanded','false');lab.classList.remove('body-open')}
   function openBody(part='sensor'){stopAuto();bodyPanel.hidden=false;bodyButton.setAttribute('aria-expanded','true');lab.classList.add('body-open');lab.classList.remove('parts-open');$('#lab-catalog').setAttribute('aria-expanded','false');const [title,desc]=bodyDescriptions[part];$('#body-part-title').textContent=title;$('#body-part-desc').textContent=desc;$$('[data-body-part]').forEach(b=>b.classList.toggle('active',b.dataset.bodyPart===part))}
   bodyButton.addEventListener('click',()=>bodyPanel.hidden?openBody():closeBody());$('#body-close').addEventListener('click',closeBody);$$('[data-body-part]').forEach(b=>b.addEventListener('click',()=>openBody(b.dataset.bodyPart)));
-  for(const [id,mode]of [['view-live',true],['view-optical',false]])$('#'+id).addEventListener('click',()=>{stopAuto();if(shotStarted!==null)return;liveView=mode;$('#view-live').setAttribute('aria-pressed',String(mode));$('#view-optical').setAttribute('aria-pressed',String(!mode));$('.photo-panel>div:first-child>span:first-child').textContent=mode?'感光元件預覽':'光學觀景窗';$('.photo-footer>span:last-child').innerHTML=mode?'LIVE VIEW <i></i>':'OPTICAL VIEW';dirty=true;run()});
+  for(const [id,mode]of [['view-live',true],['view-optical',false]])$('#'+id).addEventListener('click',()=>{stopAuto();if(shotStarted!==null)return;liveView=mode;$('#view-live').setAttribute('aria-pressed',String(mode));$('#view-optical').setAttribute('aria-pressed',String(!mode));$('.photo-panel>div:first-child>span:first-child').textContent=mode?'取景預覽':'光學觀景窗';$('.photo-footer>span:last-child').innerHTML=mode?'LIVE VIEW <i></i>':'OPTICAL VIEW';dirty=true;run()});
   $('#sensor-xray').addEventListener('click',()=>{sensorXray=!sensorXray;$('#sensor-xray').setAttribute('aria-pressed',String(sensorXray));$('#sensor-xray').textContent='成像透視：'+(sensorXray?'開':'關');dirty=true;run()});
   $('#sensor-circle').addEventListener('click',()=>{showImageCircle=!showImageCircle;$('#sensor-circle').setAttribute('aria-pressed',String(showImageCircle));dirty=true;run()});
   previewDepth.addEventListener('click',()=>{dofPreview=!dofPreview;previewDepth.setAttribute('aria-pressed',String(dofPreview));dirty=true;run()});
   let rayPaths=[],picked=-1,focusRotation=0,compactViewport=false;
-  function stopAuto(){if(auto){targetFocus=focus;targetSpread=spread}auto=false;canvas.dataset.demoPlaying='false';demoStatus.hidden=true;$('#lab-play').setAttribute('aria-pressed','false');$('#lab-play').innerHTML='<span class="play-mark">▶</span> <span>對焦／拆解導覽</span>'}
+  function stopAuto(){demoPaused=false;if(auto){targetFocus=focus;targetSpread=spread}auto=false;canvas.dataset.demoPlaying='false';demoStatus.hidden=true;$('#lab-play').setAttribute('aria-pressed','false');$('#lab-play').innerHTML='<span class="play-mark">▶</span> <span>對焦／拆解導覽</span>'}
   if(!auto)stopAuto();
   function setFocus(value,manual=true){targetFocus=THREE.MathUtils.clamp(value,.35,20);if(manual){stopAuto();focusMode='MF'}dirty=true;run()}
-  function setMode(mode){cutaway=mode==='cutaway';targetSpread=mode==='exploded'?1:0;$$('[data-lab-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.labMode===mode);b.setAttribute('aria-pressed',String(b.dataset.labMode===mode))});dirty=true;run()}
+  function setMode(mode){$('#display-mode').value=mode;structureControl.hidden=mode!=='exploded';cutaway=mode==='cutaway';targetSpread=mode==='exploded'?1:0;$$('[data-lab-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.labMode===mode);b.setAttribute('aria-pressed',String(b.dataset.labMode===mode))});dirty=true;run()}
   function syncControls(){
+    const ev=relativeExposureEV(aperture,shutterStops[shutterIndex].seconds,ndStops,iso);
+    $('#exposure-reading').textContent=`相對基準 ${ev>=0?'+':''}${ev.toFixed(1)} EV · ISO ${iso}${ev>1?' · 可能過曝':ev< -1?' · 可能欠曝':''}`;
+    $('#exposure-reading').dataset.level=ev>1?'high':ev< -1?'low':'normal';
+    $('#exposure-preview').disabled=!liveView;$('#exposure-preview').setAttribute('aria-pressed',String(exposurePreview));
+    $('#exposure-preview').textContent='取景曝光預覽：'+(exposurePreview?'開':'關');
+    exposureBadge.textContent=!liveView?'光學取景':exposurePreview?'曝光預覽中':'正常取景';
+    exposureBadge.dataset.active=String(liveView&&exposurePreview);
+    exposureBadge.title='僅影響右側取景畫面；模型內的影像為獨立成像示意。';
+    exposureScale.style.setProperty('--ev-position',`${(Math.max(-3,Math.min(3,ev))+3)/6*100}%`);
+    $('#view-angle').value=inspectGarden?'garden':rearView?'rear':wideShot?'lens':'home';
+    $('#display-mode').value=targetSpread>.01?'exploded':cutaway?'cutaway':'assembled';
+    structureControl.hidden=targetSpread<=.01;
+    $('#preview-note').textContent=!liveView?'光學取景 · 亮度隨實際光圈與 ND 變化':exposurePreview?'曝光預覽 · 拖影於拍攝後呈現':'正常取景 · 拍攝後查看曝光與拖影';
+    $('#exposure-preview').title=$('#preview-note').textContent;
+    $('.photo-footer>span:last-child').textContent=liveView?'LIVE VIEW':'OVF';
+    $('.photo-footer').title='相對基準為 f/5.6、1/125 秒、ISO 100、無 ND；不是畫面測光。';
     const value=focus.toFixed(2),dof=depthOfField(focal,aperture,focus),far=Number.isFinite(dof.far)?dof.far.toFixed(2):'∞';
     distanceCtx.fillStyle='#0a1417';distanceCtx.fillRect(0,0,320,96);distanceCtx.fillStyle='#dce9cf';distanceCtx.font='53px Consolas, monospace';distanceCtx.textAlign='center';distanceCtx.textBaseline='middle';distanceCtx.fillText(value+' m',160,51);distanceTexture.needsUpdate=true;
     $('#lab-distance').innerHTML=value+' <small>m</small>';$('#lab-dof').innerHTML=dof.near.toFixed(2)+'—'+far+' <small>m</small>';
@@ -215,7 +262,7 @@ function start(){
     const onTarget=Math.abs(Math.log(focus/targets[nearest]))<.05;
     $('#focus-label').textContent=value+' m';$('#photo-status').textContent=onTarget?names[nearest]+'對焦':'自訂距離 '+value+' m';
     $$('[data-focus]').forEach(b=>b.classList.toggle('active',Math.abs(Math.log(focus/Number(b.dataset.focus)))<.05));
-    $('#photo-settings').textContent=(liveView?focusMode:'OVF')+' · '+focal+' mm · f/'+(!liveView&&!dofPreview&&shotStarted===null?2.8:aperture)+' · '+shutterStops[shutterIndex].label;$('#lab-spread').value=String(Math.round(spread*100));$('#lab-spread-value').textContent=Math.round(spread*100)+'%';
+    $('#photo-settings').textContent=(liveView?focusMode:'OVF')+' · '+focal+' mm · f/'+(!liveView&&!dofPreview&&shotStarted===null?2.8:aperture)+' · '+shutterStops[shutterIndex].label+' · ISO '+iso;$('#lab-spread').value=String(Math.round(spread*100));$('#lab-spread-value').textContent=Math.round(spread*100)+'%';
     photo.parentElement.classList.toggle('in-focus',onTarget);
     canvas.dataset.focus=String(focus);canvas.dataset.aperture=String(aperture);canvas.dataset.focal=String(focal);canvas.dataset.spread=String(spread);
     canvas.dataset.sensorAspect=String(sensorFormat.aspect);canvas.dataset.focusGroup=String(focusCarriage.position.x);canvas.dataset.vrAxial=String(vrCarriage.position.x);
@@ -226,7 +273,7 @@ function start(){
     const toSensor=exposureState(shotStarted===null?null:clock-shotStarted,liveView).mirrorLift>.99;
     // View navigation must not rebuild optical geometry or upload text textures.
     const opticsKey=[focus,focal,aperture,workingAperture,liveView,toSensor].join('|');
-    const controlsKey=[opticsKey,spread,focusMode,shutterIndex].join('|');
+    const controlsKey=[opticsKey,spread,focusMode,shutterIndex,ndStops,iso,exposurePreview].join('|');
     if(opticsKey===lastOpticsKey){
       if(controlsKey!==lastControlsKey){lastControlsKey=controlsKey;syncControls()}
       return;
@@ -276,14 +323,18 @@ function start(){
   $('#lab-focal').addEventListener('input',e=>{stopAuto();focal=Number(e.target.value);$('#lab-focal-value').textContent=focal+' mm';$('#focal').value=e.target.value;$('#focal').dispatchEvent(new Event('input'));updateOptics();run()});
   $('#lab-spread').addEventListener('input',e=>{stopAuto();targetSpread=Number(e.target.value)/100;cutaway=targetSpread<.15;$$('[data-lab-mode]').forEach(b=>{const on=b.dataset.labMode===(targetSpread>.01?'exploded':'cutaway');b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});dirty=true;run()});
   $$('[data-lab-mode]').forEach(b=>b.addEventListener('click',()=>{stopAuto();setMode(b.dataset.labMode)}));
-  function startDemo(){resetView();closeBody();orbit.update();auto=true;canvas.dataset.demoPlaying='true';demoTime=0;aperture=5.6;focal=24;shutterIndex=2;$('#shutter-speed').value='2';canvas.dataset.shutterSeconds=String(shutterStops[2].seconds);targetFocus=.65;setMode('cutaway');demoStatus.hidden=false;demoStatus.textContent='前景樹木';$('#lab-play').setAttribute('aria-pressed','true');$('#lab-play').innerHTML='<span class="play-mark">Ⅱ</span> <span>暫停導覽</span>';dirty=true;run()}
-  $('#lab-play').addEventListener('click',()=>{if(auto)stopAuto();else startDemo()});
+  function startDemo(){resetView();closeBody();orbit.update();auto=true;canvas.dataset.demoPlaying='true';demoTime=0;aperture=5.6;focal=24;shutterIndex=2;$('#shutter-speed').value='2';canvas.dataset.shutterSeconds=String(shutterStops[2].seconds);targetFocus=.65;setMode('cutaway');demoPaused=false;demoStatus.hidden=false;demoStatus.dataset.state='playing';demoStatus.textContent='前景樹木';$('#lab-play').setAttribute('aria-pressed','true');$('#lab-play').innerHTML='<span class="play-mark">Ⅱ</span> <span>暫停導覽</span>';dirty=true;run()}
+  $('#lab-play').addEventListener('click',()=>{
+    if(auto){stopAuto();demoPaused=true;demoStatus.hidden=false;demoStatus.dataset.state='paused';$('#lab-play').innerHTML='<span class="play-mark">▶</span> <span>繼續導覽</span>';}
+    else if(demoPaused){demoPaused=false;auto=true;canvas.dataset.demoPlaying='true';demoStatus.dataset.state='playing';$('#lab-play').setAttribute('aria-pressed','true');$('#lab-play').innerHTML='<span class="play-mark">Ⅱ</span> <span>暫停導覽</span>';run();}
+    else startDemo();
+  });
   let userInteracted=false;
   function interruptDemo(event){userInteracted=true;if(event.target.closest?.('#lab-play'))return;stopAuto()}
   for(const type of ['pointerdown','wheel','keydown','click','input','change'])lab.addEventListener(type,interruptDemo,{capture:true,passive:true});
   $('#lab-rays').addEventListener('click',()=>{rayOn=!rayOn;$('#lab-rays').setAttribute('aria-pressed',String(rayOn));rayLines.visible=rayOn;photons.visible=rayOn;dirty=true;run()});
   $('#stabilize').addEventListener('click',()=>{dirty=true;run()});
-  function resetView(){wideShot=false;rearView=false;inspectGarden=false;gardenButton.setAttribute('aria-pressed','false');gardenButton.textContent='景觀特寫';rearButton.setAttribute('aria-pressed','false');$('#lab-shot').textContent='鏡頭特寫';lab.classList.remove('rear-view');canvas.dataset.view='lens';camera.position.copy(home);orbit.target.copy(targetHome);if(compactViewport)orbit.target.x-=.5}
+  function resetView(){$('#view-angle').value='home';$('#lab-tip-text').textContent='拖曳畫面旋轉 · 拖曳對焦環對焦';wideShot=false;rearView=false;inspectGarden=false;gardenButton.setAttribute('aria-pressed','false');gardenButton.textContent='景觀特寫';rearButton.setAttribute('aria-pressed','false');$('#lab-shot').textContent='鏡頭特寫';lab.classList.remove('rear-view');canvas.dataset.view='lens';camera.position.copy(home);orbit.target.copy(targetHome);if(compactViewport)orbit.target.x-=.5}
   $('#lab-reset').addEventListener('click',()=>{stopAuto();resetView();orbit.update();dirty=true;run()});
   $('#lab-full').textContent='◩';$('#lab-full').setAttribute('aria-label','隱藏操作介面');$('#lab-full').title='隱藏操作介面（H）';
   $('#lab-full').addEventListener('click',()=>lab.classList.toggle('clean-view'));
@@ -295,23 +346,27 @@ function start(){
   gardenButton.addEventListener('click',()=>{stopAuto();const next=!inspectGarden;resetView();inspectGarden=next;gardenButton.setAttribute('aria-pressed',String(next));gardenButton.textContent=next?'返回全景':'景觀特寫';if(next){camera.position.set(1.9,3.3,6);orbit.target.set(4.6,1.1,0);rotaryHint.classList.add('used');canvas.dataset.view='garden';$('#lab-tip-text').textContent='Blender 景觀模型檢視 · 主畫面景深暫停，感光元件預覽仍可對焦';}else{$('#lab-tip-text').textContent='拖曳畫面旋轉 · 拖曳對焦環對焦';}orbit.update();dirty=true;run()});
   rearButton.addEventListener('click',()=>{stopAuto();const rear=!rearView;resetView();rearView=rear;rearButton.setAttribute('aria-pressed',String(rear));lab.classList.toggle('rear-view',rear);canvas.dataset.view=rear?'image-back':'lens';if(rear){camera.position.set(-12.5,3.1,3.2);orbit.target.set(-4.1,1.3,0);rotaryHint.classList.add('used');$('#lab-tip-text').textContent='36 × 24 mm CMOS · 背面影像僅在「成像透視」開啟時顯示';$('#announcement').textContent='已繞到 3:2 成像面背面。實際感光元件不透明，此處是成像透視示意。'}orbit.update();dirty=true;run()});
   function savePhoto(){
-    const settings=shotSettings??shutterStops[shutterIndex],moving=!!rotor;
+    const settings=shotSettings,moving=!!rotor;
     const times=exposureTimes(motionTime,settings.seconds,moving);let accumulated;
     preview.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight,false);photoRT.setSize(sensorFormat.captureWidth,sensorFormat.captureHeight);uniforms.resolution.value.set(sensorFormat.captureWidth,sensorFormat.captureHeight);
     try{
+      uniforms.focus.value=settings.focus;uniforms.focal.value=settings.focal;uniforms.aperture.value=settings.aperture;uniforms.diffraction.value=diffractionSigma(settings.aperture);
+      photoCamera.fov=2*Math.atan(sensorFormat.height/(2*settings.focal))*180/Math.PI;photoCamera.updateProjectionMatrix();
       accumulated=integrateExposure({renderer:preview,scene,camera:photoCamera,source:photoRT,times,pose:poseMotion});
-      uniforms.tColor.value=accumulated.texture;uniforms.exposure.value=exposureGain(aperture,settings.seconds);preview.render(screenScene,screenCamera);
-      gallery.add(photo.toDataURL('image/png'),`${settings.label} · ${focal} mm · f/${aperture} · 對焦 ${focus.toFixed(2)} m · ISO 100`);
+      uniforms.tColor.value=accumulated.texture;uniforms.exposure.value=exposureGain(settings.aperture,settings.seconds,settings.ndStops,settings.iso);preview.render(screenScene,screenCamera);
+      gallery.add(photo.toDataURL('image/png'),`${settings.label} · ${settings.focal} mm · f/${settings.aperture} · 對焦 ${settings.focus.toFixed(2)} m · ISO ${settings.iso} · ND 減 ${settings.ndStops} 級`);
+      sensorContext.drawImage(photo,0,0,PREVIEW_W,PREVIEW_H);sensorMap.needsUpdate=true;sensorReviewUntil=clock+3;
+      canvas.dataset.captureEV=String(relativeExposureEV(settings.aperture,settings.seconds,settings.ndStops,settings.iso));canvas.dataset.captureND=String(settings.ndStops);canvas.dataset.captureISO=String(settings.iso);
       canvas.dataset.captureSamples=String(times.length);canvas.dataset.captureShutter=String(settings.seconds);
       $('#announcement').textContent='已拍攝 '+settings.label+'、3:2 照片。'+(moving&&times.length>1?'已累積曝光期間的風車運動。':'風車動作凍結。')+'已套用曝光模擬。'+'可在相簿放大檢視與切換照片。';
     }catch(error){console.error('Photo exposure failed',error);$('#announcement').textContent='拍攝未完成，請重試。'}
     finally{
       uniforms.tColor.value=photoRT.texture;accumulated?.dispose();poseMotion(motionTime);
-      preview.setSize(PREVIEW_W,PREVIEW_H,false);photoRT.setSize(PREVIEW_W,PREVIEW_H);uniforms.resolution.value.set(PREVIEW_W,PREVIEW_H);renderPhoto();
+      preview.setSize(PREVIEW_W,PREVIEW_H,false);photoRT.setSize(PREVIEW_W,PREVIEW_H);uniforms.resolution.value.set(PREVIEW_W,PREVIEW_H);lastOpticsKey='';updateOptics();renderPhoto();
     }
     flash.classList.remove('shoot');void flash.offsetWidth;flash.classList.add('shoot');dirty=true;run();
   }
-  function takePhoto(){if(shotStarted!==null)return;stopAuto();shotSettings={...shutterStops[shutterIndex]};shotStarted=clock;shotSaved=false;shutter.disabled=true;$('#announcement').textContent='拍攝 '+shotSettings.label+'：機構動作放慢以便觀察，照片依設定曝光時間累積。';if(reduce.matches){updateOptics();savePhoto();shotStarted=null;shutter.disabled=false;}dirty=true;run()}
+  function takePhoto(){if(shotStarted!==null)return;stopAuto();shotSettings={...shutterStops[shutterIndex],aperture,focal,focus,ndStops,iso};sensorReviewUntil=0;shotStarted=clock;shotSaved=false;shutter.disabled=true;$('#announcement').textContent='拍攝 '+shotSettings.label+'：機構動作放慢以便觀察，照片依設定曝光時間累積。';if(reduce.matches){updateOptics();savePhoto();shotStarted=null;shutter.disabled=false;}dirty=true;run()}
   shutter.addEventListener('click',takePhoto);
   photo.style.cursor='crosshair';photo.addEventListener('pointerdown',e=>e.stopPropagation());photo.addEventListener('click',event=>{const r=photo.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,photoCamera);const h=raycaster.intersectObjects(props.children,true)[0];if(h){setFocus(.35*Math.pow(20/.35,(h.point.x-1.8)/5.3));focusMode='AF-S'}});
   document.addEventListener('keydown',e=>{if(gallery.isOpen)return;if(e.key==='Escape'){closeBody();lab.classList.remove('clean-view','parts-open');$('#lab-catalog').setAttribute('aria-expanded','false');diagram.hidden=true}if(!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){if(e.key.toLowerCase()==='h')lab.classList.toggle('clean-view');if(e.key===' '){e.preventDefault();takePhoto()}}});
@@ -324,7 +379,17 @@ function start(){
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();$('#lab-loading').classList.remove('ready');$('#lab-loading').removeAttribute('aria-hidden');$('#lab-loading').textContent='3D 顯示已暫停，重新載入頁面即可恢復。零件圖解仍可使用。';$('.technical-view').open=true;stopAuto()});
   const animationLoop=createFrameLoop({draw:tick,visible:()=>visible&&!document.hidden,request:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle)});
   function run(){animationLoop.request()}
-  function renderPhoto(){uniforms.exposure.value=previewGain(liveView,uniforms.aperture.value);preview.setRenderTarget(photoRT);preview.render(scene,photoCamera);preview.setRenderTarget(null);preview.render(screenScene,screenCamera);sensorMap.needsUpdate=true;lastPhoto=clock}
+  function renderPhoto(){
+    const normalGain=previewGain(liveView,uniforms.aperture.value,ndStops);
+    uniforms.exposure.value=normalGain;preview.setRenderTarget(photoRT);preview.render(scene,photoCamera);preview.setRenderTarget(null);preview.render(screenScene,screenCamera);
+    // The teaching image stays independent of the optional Live View simulation.
+    if(clock>=sensorReviewUntil){sensorContext.drawImage(photo,0,0,PREVIEW_W,PREVIEW_H);sensorMap.needsUpdate=true;}
+    canvas.dataset.sensorReview=String(clock<sensorReviewUntil);
+    if(liveView&&exposurePreview){uniforms.exposure.value=exposureGain(aperture,shutterStops[shutterIndex].seconds,ndStops,iso);preview.render(screenScene,screenCamera);}
+    canvas.dataset.previewGain=String(uniforms.exposure.value);
+    $('.sensor-note').textContent=clock<sensorReviewUntil?'成像示意 · 拍攝結果保留 3 秒；照片已存入相簿。':'機身內影像為成像示意；感光元件本身不會顯示照片。';
+    lastPhoto=clock;
+  }
   function tick(elapsed){
     const dt=Math.min(elapsed,1/30);clock+=elapsed;
     motionTime+=elapsed;poseMotion(motionTime);
