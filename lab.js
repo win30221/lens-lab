@@ -220,8 +220,18 @@ function start(){
     canvas.dataset.focus=String(focus);canvas.dataset.aperture=String(aperture);canvas.dataset.focal=String(focal);canvas.dataset.spread=String(spread);
     canvas.dataset.sensorAspect=String(sensorFormat.aspect);canvas.dataset.focusGroup=String(focusCarriage.position.x);canvas.dataset.vrAxial=String(vrCarriage.position.x);
   }
+  let lastOpticsKey='',lastControlsKey='',viewMovingUntil=0;
   function updateOptics(){
     const workingAperture=!liveView&&!dofPreview&&shotStarted===null?2.8:aperture,open=.56*2.8/workingAperture;
+    const toSensor=exposureState(shotStarted===null?null:clock-shotStarted,liveView).mirrorLift>.99;
+    // View navigation must not rebuild optical geometry or upload text textures.
+    const opticsKey=[focus,focal,aperture,workingAperture,liveView,toSensor].join('|');
+    const controlsKey=[opticsKey,spread,focusMode,shutterIndex].join('|');
+    if(opticsKey===lastOpticsKey){
+      if(controlsKey!==lastControlsKey){lastControlsKey=controlsKey;syncControls()}
+      return;
+    }
+    lastOpticsKey=opticsKey;lastControlsKey=controlsKey;
     for(let j=0;j<9;j++){const a=j*2*Math.PI/9,b=(j+1)*2*Math.PI/9,r=.64,vertices=[[0,r*Math.cos(a),r*Math.sin(a)],[0,r*Math.cos(b),r*Math.sin(b)],[0,open*Math.cos(b),open*Math.sin(b)],[0,open*Math.cos(a),open*Math.sin(a)]];const arr=irisBlades[j].geometry.attributes.position;let k=0;for(const ix of [0,1,2,0,2,3]){arr.setXYZ(k++,...vertices[ix])}arr.needsUpdate=true;irisBlades[j].geometry.computeVertexNormals()}
     uniforms.focus.value=focus;uniforms.focal.value=focal;uniforms.aperture.value=workingAperture;uniforms.diffraction.value=diffractionSigma(workingAperture);
     uniforms.exposure.value=previewGain(liveView,workingAperture);
@@ -233,7 +243,6 @@ function start(){
     rayPaths=[];const a=rayGeo.attributes.position;let k=0;
     const sensorX=body.sensorX;
     for(let j=0;j<9;j++){const ang=j*2*Math.PI/9,ry=Math.cos(ang)*open,rz=Math.sin(ang)*open;
-      const toSensor=exposureState(shotStarted===null?null:clock-shotStarted,liveView).mirrorLift>.99;
       const path=[new THREE.Vector3(sceneX(focus),1.4,0),new THREE.Vector3(CENTER+1.15,LENS_Y+ry,rz),new THREE.Vector3(CENTER-.25,LENS_Y+ry*.75,rz*.75),new THREE.Vector3(toSensor?sensorX+.04:body.mirrorX,LENS_Y+(toSensor?.12:0),0)];
       rayPaths.push(path);for(let q=0;q<3;q++){a.setXYZ(k++,...path[q].toArray());a.setXYZ(k++,...path[q+1].toArray())}}
     a.needsUpdate=true;rayGeo.computeBoundingSphere();dirty=true;syncControls();
@@ -259,7 +268,7 @@ function start(){
   });
   function release(){if(drag){try{canvas.releasePointerCapture(drag.id)}catch{}drag=null;orbit.enabled=true;$('#lab-tip-text').textContent='轉動對焦環，清晰就會移動'}}
   canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);canvas.addEventListener('wheel',stopAuto,{passive:true});
-  orbit.addEventListener('change',()=>{dirty=true;run()});orbit.addEventListener('start',()=>{stopAuto();dirty=true;run()});
+  orbit.addEventListener('change',()=>{viewMovingUntil=clock+.15;run()});orbit.addEventListener('start',()=>{stopAuto();viewMovingUntil=clock+.15;run()});
   canvas.addEventListener('keydown',event=>{let used=true;if(event.key==='ArrowLeft')camera.position.applyAxisAngle(new THREE.Vector3(0,1,0),-.08);else if(event.key==='ArrowRight')camera.position.applyAxisAngle(new THREE.Vector3(0,1,0),.08);else if(event.key==='ArrowUp')setFocus(targetFocus*1.1);else if(event.key==='ArrowDown')setFocus(targetFocus/1.1);else if(event.key.toLowerCase()==='f')select(3);else used=false;if(used){event.preventDefault();stopAuto();orbit.update();dirty=true;run()}});
   $('#lab-focus').addEventListener('input',e=>{select(3);setFocus(focusFromSlider(Number(e.target.value)))});
   $$('[data-focus]').forEach(b=>b.addEventListener('click',()=>{select(3);setFocus(Number(b.dataset.focus))}));
@@ -326,11 +335,11 @@ function start(){
       const aperturePosition=apertureStops.reduce((best,value,i)=>Math.abs(value-aperture)<Math.abs(apertureStops[best]-aperture)?i:best,0);$('#lab-aperture').value=String(aperturePosition);$('#aperture').value=String(aperturePosition);$('#lab-aperture-value').textContent='f/'+aperture;
       if(demoStatus.textContent!==demo.stage)demoStatus.textContent=demo.stage;dirty=true;
     }
-    const previous=focus;focus=reduce.matches&&!auto?targetFocus:THREE.MathUtils.damp(focus,targetFocus,7,dt);spread=reduce.matches&&!auto?targetSpread:THREE.MathUtils.damp(spread,targetSpread,5,dt);if(Math.abs(focus-targetFocus)<.0003)focus=targetFocus;if(Math.abs(spread-targetSpread)<.0003)spread=targetSpread;
-    if(Math.abs(previous-focus)>.00001||dirty)updateOptics();
+    focus=reduce.matches&&!auto?targetFocus:THREE.MathUtils.damp(focus,targetFocus,7,dt);spread=reduce.matches&&!auto?targetSpread:THREE.MathUtils.damp(spread,targetSpread,5,dt);if(Math.abs(focus-targetFocus)<.0003)focus=targetFocus;if(Math.abs(spread-targetSpread)<.0003)spread=targetSpread;
+    updateOptics();
     for(let i=0;i<groups.length;i++)groups[i].position.x=groups[i].userData.rest+(5.5-i)*.16*spread;
     groups[3].rotation.x=focusAngle(focus);groups[4].rotation.x=(focal-24)/46*Math.PI*1.1;indexHousing.position.x=groups[3].position.x+.225;
-    const guide=groups[3].getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,.9,.2)).project(camera),gw=wrap.clientWidth,gh=wrap.clientHeight;rotaryHint.style.transform=`translate(${THREE.MathUtils.clamp((guide.x*.5+.5)*gw-70,18,gw-235)}px,${Math.max(85,(-guide.y*.5+.5)*gh-76)}px)`;
+    if(!rotaryHint.classList.contains('used')){const guide=groups[3].getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,.9,.2)).project(camera),gw=wrap.clientWidth,gh=wrap.clientHeight;rotaryHint.style.transform=`translate(${THREE.MathUtils.clamp((guide.x*.5+.5)*gw-70,18,gw-235)}px,${Math.max(85,(-guide.y*.5+.5)*gh-76)}px)`;}
     const stable=$('#stabilize').getAttribute('aria-pressed')==='true',vr=stabilizationOffset(clock,stable&&!reduce.matches);vrCarriage.position.set(vr.x,vr.y,vr.z);
     const exposure=exposureState(shotStarted===null?null:clock-shotStarted,liveView);body.update({state:exposure,xray:sensorXray,showCircle:showImageCircle,showRays:rayOn});
     if($('#body-state').textContent!==exposure.phase)$('#body-state').textContent=exposure.phase;
@@ -340,7 +349,11 @@ function start(){
     if(exposure.done){shotStarted=null;shutter.disabled=false;updateOptics();dirty=true;}
     for(const pair of shells){pair.cut.visible=cutaway&&spread<.3;pair.full.visible=!pair.cut.visible}
     if(rayOn&&rayPaths.length&&!reduce.matches){const pos=photonsGeo.attributes.position;for(let i=0;i<9;i++){const t=(clock*.33+i*.113)%1,u=t*3,j=Math.min(2,Math.floor(u)),p=new THREE.Vector3().lerpVectors(rayPaths[i][j],rayPaths[i][j+1],u-j);pos.setXYZ(i,p.x,p.y,p.z)}pos.needsUpdate=true}
-    orbit.update();if(dirty||clock-lastPhoto>.1)renderPhoto();if(inspectGarden)renderer.render(scene,camera);else sceneFinish.render(scene,focus,focal,aperture);dirty=false;
+    orbit.update();
+    // Bound the second WebGL renderer even while controls change every frame.
+    if(lastPhoto===0||clock-lastPhoto>=.1)renderPhoto();
+    if(inspectGarden)renderer.render(scene,camera);else sceneFinish.render(scene,focus,focal,aperture,!!drag||clock<viewMovingUntil);
+    dirty=false;
     if(canvas.dataset.studio){canvas.dataset.ready='true';document.body.classList.remove('lab-booting');$('#lab-loading').classList.add('ready');$('#lab-loading').setAttribute('aria-hidden','true');}
     return true;
   }
